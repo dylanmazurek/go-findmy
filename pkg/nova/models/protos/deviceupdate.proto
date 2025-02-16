@@ -1,0 +1,297 @@
+syntax = "proto3";
+
+option go_package = "github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings";
+
+import "common.proto";
+
+message GetEidInfoForE2eeDevicesResponse {
+    EncryptedOwnerKeyAndMetadata encryptedOwnerKeyAndMetadata = 4;
+  }
+  
+  message EncryptedOwnerKeyAndMetadata {
+    bytes encryptedOwnerKey = 1;
+    string securityDomain = 3;
+  }
+  
+  message DevicesList {
+    repeated DeviceMetadata deviceMetadata = 2;
+  }
+  
+  message DevicesListRequest {
+    DevicesListRequestPayload deviceListRequestPayload = 1;
+  }
+  
+  message DevicesListRequestPayload {
+    DeviceType type = 1;
+    string id = 3;
+  }
+  
+  enum DeviceType {
+      UNKNOWN_DEVICE_TYPE = 0;
+      ANDROID_DEVICE = 1;
+      SPOT_DEVICE = 2;
+      TEST_DEVICE_TYPE = 3;
+      AUTO_DEVICE = 4;
+      FASTPAIR_DEVICE = 5;
+      SUPERVISED_ANDROID_DEVICE = 7;
+  }
+  
+  message ExecuteActionRequest {
+      ExecuteActionScope scope = 1;
+      ExecuteActionType action = 2;
+      ExecuteActionRequestMetadata requestMetadata = 3;
+  }
+  
+  message ExecuteActionRequestMetadata {
+    DeviceType type = 1;
+    string requestUuid = 2;
+    string fmdClientUuid = 3;
+    GcmCloudMessagingIdProtobuf gcmRegistrationId = 4;
+    bool unknown = 6;
+  }
+  
+  message GcmCloudMessagingIdProtobuf {
+    string id = 1;
+  }
+  
+  message ExecuteActionType {
+    ExecuteActionLocateTrackerType locateTracker = 30;
+    ExecuteActionSoundType startSound = 31;
+    ExecuteActionSoundType stopSound = 32;
+  }
+  
+  message ExecuteActionLocateTrackerType {
+    Time lastHighTrafficEnablingTime = 2;
+    SpotContributorType contributorType = 3;
+  }
+  
+  enum SpotContributorType {
+      FMDN_DISABLED_DEFAULT = 0;
+      FMDN_CONTRIBUTOR_HIGH_TRAFFIC = 3;
+      FMDN_CONTRIBUTOR_ALL_LOCATIONS = 4;
+      FMDN_HIGH_TRAFFIC = 1;
+      FMDN_ALL_LOCATIONS = 2;
+  }
+  
+  message ExecuteActionSoundType {
+    DeviceComponent component = 1;
+  }
+  
+  enum DeviceComponent {
+      DEVICE_COMPONENT_UNSPECIFIED = 0;
+      DEVICE_COMPONENT_RIGHT = 1;
+      DEVICE_COMPONENT_LEFT = 2;
+      DEVICE_COMPONENT_CASE = 3;
+  }
+  
+  message ExecuteActionScope {
+      DeviceType type = 2;
+      ExecuteActionDeviceIdentifier device = 3;
+  }
+  
+  message ExecuteActionDeviceIdentifier {
+    CanonicId canonicId = 1;
+  }
+  
+  message DeviceUpdate {
+      ExecuteActionRequestMetadata fcmMetadata = 1;
+      DeviceMetadata deviceMetadata = 3;
+      RequestMetadata requestMetadata = 2;
+  }
+  
+  message DeviceMetadata {
+    IdentitfierInformation identifierInformation = 1;
+    DeviceInformation information = 4;
+    string userDefinedDeviceName = 5;
+    ImageInformation imageInformation = 6;
+  }
+  
+  message ImageInformation {
+    string imageUrl = 1;
+  }
+  
+  message IdentitfierInformation {
+    PhoneInformation phoneInformation = 1;
+    IdentifierInformationType type = 2;
+    CanonicIds canonicIds = 3;
+  }
+  
+  enum IdentifierInformationType {
+    IDENTIFIER_UNKNOWN = 0;
+    IDENTIFIER_ANDROID = 1;
+    IDENTIFIER_SPOT = 2;
+  }
+  
+  message PhoneInformation {
+    CanonicIds canonicIds = 2;
+  }
+  
+  message CanonicIds {
+    repeated CanonicId canonicId = 1;
+  }
+  
+  message CanonicId {
+    string id = 1;
+  }
+  
+  message DeviceInformation {
+    DeviceRegistration deviceRegistration = 1;
+    LocationInformation locationInformation = 2;
+    repeated AccessInformation accessInformation = 3;
+  }
+  
+  message DeviceTypeInformation {
+    SpotDeviceType deviceType = 2;
+  }
+  
+  message DeviceRegistration {
+    DeviceTypeInformation deviceTypeInformation = 2;
+    EncryptedUserSecrets encryptedUserSecrets = 19;
+    string manufacturer = 20;
+    string fastPairModelId = 21;
+    int32 pairDate = 23;
+    string model = 34;
+  }
+  
+  message EncryptedUserSecrets {
+    bytes encryptedIdentityKey = 1;
+    int32 ownerKeyVersion = 3;
+    bytes encryptedAccountKey = 4;
+    Time creationDate = 8;
+    bytes encryptedSha256AccountKeyPublicAddress = 11;
+  }
+  
+  message LocationInformation {
+    LocationsAndTimestampsWrapper reports = 3;
+  }
+  
+  message LocationsAndTimestampsWrapper {
+    RecentLocationAndNetworkLocations recentLocationAndNetworkLocations = 4;
+  }
+  
+  message RecentLocationAndNetworkLocations {
+    LocationReport recentLocation = 1;
+    Time recentLocationTimestamp = 2;
+    repeated LocationReport networkLocations = 5;
+    repeated Time networkLocationTimestamps = 6;
+    uint32 minLocationsNeededForAggregation = 9;
+  }
+  
+  enum SpotDeviceType {
+      DEVICE_TYPE_UNKNOWN = 0;
+      DEVICE_TYPE_BEACON = 1;
+      DEVICE_TYPE_HEADPHONES = 2;
+      DEVICE_TYPE_KEYS = 3;
+      DEVICE_TYPE_WATCH = 4;
+      DEVICE_TYPE_WALLET = 5;
+      DEVICE_TYPE_BAG = 7;
+      DEVICE_TYPE_LAPTOP = 8;
+      DEVICE_TYPE_CAR = 9;
+      DEVICE_TYPE_REMOTE_CONTROL = 10;
+      DEVICE_TYPE_BADGE = 11;
+      DEVICE_TYPE_BIKE = 12;
+      DEVICE_TYPE_CAMERA = 13;
+      DEVICE_TYPE_CAT = 14;
+      DEVICE_TYPE_CHARGER = 15;
+      DEVICE_TYPE_CLOTHING = 16;
+      DEVICE_TYPE_DOG = 17;
+      DEVICE_TYPE_NOTEBOOK = 18;
+      DEVICE_TYPE_PASSPORT = 19;
+      DEVICE_TYPE_PHONE = 20;
+      DEVICE_TYPE_SPEAKER = 21;
+      DEVICE_TYPE_TABLET = 22;
+      DEVICE_TYPE_TOY = 23;
+      DEVICE_TYPE_UMBRELLA = 24;
+      DEVICE_TYPE_STYLUS = 25;
+      DEVICE_TYPE_EARBUDS = 26;
+  }
+  
+  message AccessInformation {
+    string email = 1;
+    bool hasAccess = 2;
+    bool isOwner = 3;
+    bool thisAccount = 4;
+  }
+  
+  message RequestMetadata {
+    Time responseTime = 1;
+  }
+  
+  
+  message EncryptionUnlockRequestExtras {
+    int32 operation = 1;
+    SecurityDomain securityDomain = 2;
+    string sessionId = 6;
+  }
+  
+  message SecurityDomain {
+      string name = 1;
+      int32 unknown = 2;
+  }
+  
+  message Location {
+      sfixed32 latitude = 1;
+      sfixed32 longitude = 2;
+      int32 altitude = 3;
+  }
+  
+  message RegisterBleDeviceRequest {
+      string fastPairModelId = 7;
+      DeviceDescription description = 10;
+      DeviceCapabilities capabilities = 11;
+  
+      E2EEPublicKeyRegistration e2eePublicKeyRegistration = 16;
+  
+      string manufacturerName = 17;
+      bytes ringKey = 21;
+      bytes recoveryKey = 22;
+      bytes unwantedTrackingKey = 24;
+      string modelName = 25;
+  }
+  
+  message E2EEPublicKeyRegistration {
+      int32 rotationExponent = 1;
+      EncryptedUserSecrets encryptedUserSecrets = 3;
+      PublicKeyIdList publicKeyIdList = 4;
+      int32 pairingDate = 5;
+  }
+  
+  message PublicKeyIdList {
+      repeated PublicKeyIdInfo publicKeyIdInfo = 1;
+  
+      message PublicKeyIdInfo {
+          Time timestamp = 1;
+          TruncatedEID publicKeyId = 2;
+          int32 trackableComponent = 3;
+      }
+  }
+  
+  message TruncatedEID {
+      bytes truncatedEid = 1;
+  }
+  
+  message UploadPrecomputedPublicKeyIdsRequest {
+      repeated DevicePublicKeyIds deviceEids = 1;
+  
+      message DevicePublicKeyIds {
+          CanonicId canonicId = 1;
+          PublicKeyIdList clientList = 2;
+          int32 pairDate = 3;
+      }
+  }
+  
+  message DeviceCapabilities {
+      bool isAdvertising = 1;
+      int32 capableComponents = 5;
+      int32 trackableComponents = 6;
+  }
+  
+  message DeviceDescription {
+      string userDefinedName = 1;
+      SpotDeviceType deviceType = 2;
+      repeated DeviceComponentInformation deviceComponentsInformation = 9;
+  }
+  
+  message DeviceComponentInformation {
+      string imageUrl = 1;
+  }

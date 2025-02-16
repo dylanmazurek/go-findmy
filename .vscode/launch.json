@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "debug main",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main.go",
+            "cwd": "${workspaceFolder}/",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "debug nova",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/pkg/nova/cmd/main.go",
+            "cwd": "${workspaceFolder}/",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "debug notifier",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/pkg/notifier/cmd/main.go",
+            "envFile": "${workspaceFolder}/.env",
+            "cwd": "${workspaceFolder}/"
+        }
+    ]
+}
