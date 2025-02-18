@@ -1,3 +1,4 @@
-/.env
+.env
+session.json
+
 /python-reference
-/session.json

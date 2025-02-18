@@ -45,8 +45,10 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		loggerCtx: ctx,
 	}
 
-	if newClient.session.AdmSession.AdmToken == "" {
-		_, err := newClient.getAdmToken()
+	err := newClient.validateAdmToken()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to validate ADM token")
+		_, err = newClient.getAdmToken()
 		if err != nil {
 			return nil, err
 		}

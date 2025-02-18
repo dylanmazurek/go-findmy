@@ -4,6 +4,7 @@ package constants
 const (
 	GOOGLE_AUTH_URL        = "https://android.clients.google.com/auth"
 	GOOGLE_AUTH_USER_AGENT = "GoogleAuth/1.4"
+	GOOGLE_TOKEN_INFO_URL  = "https://www.googleapis.com/oauth2/v3/tokeninfo"
 
 	APP_ADM = "com.google.android.apps.adm"
 )

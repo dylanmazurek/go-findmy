@@ -21,8 +21,6 @@ func NewSessionFromClient(c *fcmreceiver.FCMClient) (*models.FcmSession, *uint64
 		RegistrationToken: &c.FcmToken,
 		PrivateKeyBase64:  &privateKey,
 		AuthSecret:        &authSecret,
-		//PersistentIds:         c.PersistentIds,
-		//InstallationAuthToken: c.InstallationAuthToken,
 	}
 
 	return newSession, &c.AndroidId, &c.SecurityToken, err
@@ -101,7 +99,6 @@ func (s *Session) registerFCM(c *fcmreceiver.FCMClient) error {
 	}
 
 	s.FcmSession.RegistrationToken = &fcmToken
-	//session.FcmSession.GcmToken = gcmToken
 	s.AndroidId = &androidId
 	s.SecurityToken = &securityToken
 

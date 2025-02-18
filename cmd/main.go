@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/dylanmazurek/google-findmy/internal/logger"
 	"github.com/dylanmazurek/google-findmy/pkg/notifier"
@@ -41,16 +40,28 @@ func main() {
 		}
 	}()
 
-	// err = printDevices(novaClient)
-	// if err != nil {
-	// 	log.Fatal().Err(err).Msg("failed to print devices")
-	// }
-
-	time.Sleep(5 * time.Second)
-
-	err = novaClient.ExecuteAction("670be53b-0000-218a-b91b-240588775cf0")
+	err = printDevices(novaClient)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to execute action")
+		log.Fatal().Err(err).Msg("failed to print devices")
+	}
+
+	devices, err := novaClient.GetDevices()
+
+	for _, device := range devices.DeviceMetadata {
+		var canonicId string
+		switch device.GetIdentifierInformation().GetType() {
+		case bindings.IdentifierInformationType_IDENTIFIER_ANDROID:
+			canonicId = device.GetIdentifierInformation().GetPhoneInformation().GetCanonicIds().GetCanonicId()[0].GetId()
+		default:
+			canonicId = device.GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
+		}
+
+		log.Info().Str("canonicId", canonicId).Msg("executing action")
+
+		err = novaClient.ExecuteAction(canonicId)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to execute action")
+		}
 	}
 
 	sigs := make(chan os.Signal, 1)

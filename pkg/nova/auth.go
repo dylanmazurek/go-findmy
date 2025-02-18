@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dylanmazurek/google-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
+	"github.com/perimeterx/marshmallow"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,6 +39,37 @@ func createAuthTransport(token string) (*http.Client, error) {
 	}
 
 	return authClient, nil
+}
+
+func (c *Client) validateAdmToken() error {
+	urlPath := fmt.Sprintf("%s?access_token=%s", constants.GOOGLE_TOKEN_INFO_URL, c.session.AdmSession.AdmToken)
+	req, err := http.NewRequest("GET", urlPath, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var tokenInfo models.TokenInfo
+	_, err = marshmallow.Unmarshal(bodyBytes, &tokenInfo)
+	if err != nil {
+		return err
+	}
+
+	if tokenInfo.ExpiresIn < 60 {
+		return ErrTokenExpired
+	}
+
+	return nil
 }
 
 func (c *Client) getAdmToken() (*string, error) {
