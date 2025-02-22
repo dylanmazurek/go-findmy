@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings";
+option go_package = "github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings";
 
 message Time {
     uint32 seconds = 1;

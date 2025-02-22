@@ -6,8 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dylanmazurek/google-findmy/internal/logger"
-	"github.com/dylanmazurek/google-findmy/pkg/notifier"
+	"github.com/dylanmazurek/go-findmy/internal/logger"
+	"github.com/dylanmazurek/go-findmy/pkg/notifier"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,9 +18,15 @@ func main() {
 
 	ctx = logger.InitLogger(ctx)
 
-	n := notifier.NewNotifier(ctx)
+	sessionFile := constants.DEFAULT_SESSION_FILE
+	session, err := session.New(ctx, &sessionFile)
+	if err != nil {
+		panic(err)
+	}
 
-	err := n.StartListening()
+	n := notifier.NewClient(ctx, session, nil)
+
+	err = n.StartListening(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to start listening")
 	}

@@ -8,7 +8,16 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main.go",
             "cwd": "${workspaceFolder}/",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+        },
+        {
+            "name": "debug findmy",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/internal/findmy/cmd/main.go",
+            "cwd": "${workspaceFolder}/",
+            "envFile": "${workspaceFolder}/.env",
         },
         {
             "name": "debug nova",
@@ -17,7 +26,6 @@
             "mode": "auto",
             "program": "${workspaceFolder}/pkg/nova/cmd/main.go",
             "cwd": "${workspaceFolder}/",
-            "envFile": "${workspaceFolder}/.env"
         },
         {
             "name": "debug notifier",
@@ -25,7 +33,6 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/pkg/notifier/cmd/main.go",
-            "envFile": "${workspaceFolder}/.env",
             "cwd": "${workspaceFolder}/"
         },
         {
@@ -34,6 +41,14 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/pkg/decryptor/cmd/main.go",
+            "cwd": "${workspaceFolder}/"
+        },
+        {
+            "name": "debug publisher",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/internal/publisher/cmd/main.go",
             "envFile": "${workspaceFolder}/.env",
             "cwd": "${workspaceFolder}/"
         }

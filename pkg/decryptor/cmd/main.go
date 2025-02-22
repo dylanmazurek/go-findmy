@@ -6,10 +6,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/dylanmazurek/google-findmy/internal/logger"
-	"github.com/dylanmazurek/google-findmy/pkg/decryptor"
-	"github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings"
-	"github.com/rs/zerolog/log"
+	"github.com/dylanmazurek/go-findmy/internal/logger"
+	"github.com/dylanmazurek/go-findmy/pkg/decryptor"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -17,17 +18,22 @@ func main() {
 	ctx := context.Background()
 
 	ctx = logger.InitLogger(ctx)
-	log := log.Ctx(ctx)
 
-	ownerKey := os.Getenv("OWNER_KEY")
-	newDecryptor := decryptor.NewDecryptor(ownerKey)
+	sessionFile := constants.DEFAULT_SESSION_FILE
+	session, err := session.New(ctx, &sessionFile)
+	if err != nil {
+		panic(err)
+	}
+
+	newDecryptor, err := decryptor.NewDecryptor(session.OwnerKey)
+	if err != nil {
+		panic(err)
+	}
 
 	fcmPayloadEncodedFile, err := os.OpenFile("message.txt", os.O_RDONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
-
-	log.Info().Msg("Opened message.txt")
 
 	fcmPayloadEncoded, err := io.ReadAll(fcmPayloadEncodedFile)
 	if err != nil {
@@ -45,5 +51,10 @@ func main() {
 		panic(err)
 	}
 
-	newDecryptor.DecryptLocations(ctx, &deviceUpdate)
+	locationReports, err := newDecryptor.DecryptDeviceUpdate(ctx, &deviceUpdate)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = locationReports
 }

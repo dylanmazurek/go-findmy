@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dylanmazurek/google-findmy/pkg/nova"
-	"github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/pkg/nova"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/markkurossi/tabulate"
 )
 
@@ -47,7 +47,17 @@ func listDevices(novaClient *nova.Client) error {
 		var canonicId string
 		switch device.GetIdentifierInformation().GetType() {
 		case bindings.IdentifierInformationType_IDENTIFIER_ANDROID:
-			canonicId = device.GetIdentifierInformation().GetPhoneInformation().GetCanonicIds().GetCanonicId()[0].GetId()
+			phoneInfo := device.GetIdentifierInformation().GetPhoneInformation()
+			if phoneInfo == nil {
+				continue
+			}
+
+			canonicIds := phoneInfo.GetCanonicIds()
+			if canonicIds == nil {
+				continue
+			}
+
+			canonicId = canonicIds.GetCanonicId()[0].GetId()
 		default:
 			canonicId = device.GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
 		}

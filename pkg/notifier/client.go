@@ -3,111 +3,208 @@ package notifier
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"os"
+	"regexp"
 	"slices"
+	"strings"
 
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/internal/publisher"
+	"github.com/dylanmazurek/go-findmy/internal/publisher/models"
+	"github.com/dylanmazurek/go-findmy/pkg/decryptor"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/proto"
 )
 
-type Notifier struct {
+type Client struct {
 	internalClient *fcmreceiver.FCMClient
+	decryptor      *decryptor.Decryptor
+	publisher      *publisher.Client
 
-	loggerCtx context.Context
+	semanticLocations map[string]models.Attributes
+
+	session *session.Session
+	ctx     *context.Context
 }
 
-func NewNotifier(ctx context.Context) *Notifier {
-	loger := zerolog.Ctx(ctx).With().Str("component", "notifier").Logger()
-	log.Logger = loger
+func NewClient(ctx context.Context, s *session.Session, publisher *publisher.Client) *Client {
+	log := log.Ctx(ctx)
 
-	log.Info().Msg("creating new notifier")
+	log.Trace().Msg("creating new notifier")
 
-	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := session.New(ctx, &sessionFile)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to create session")
-		return nil
-	}
-
-	fcmClient, err := session.NewFCMClient(ctx, true)
+	fcmClient, err := s.NewFCMClient(ctx, true)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create FCM client")
 		return nil
 	}
 
-	err = session.SaveSession(ctx, constants.DEFAULT_SESSION_FILE)
+	err = s.SaveSession(ctx, constants.DEFAULT_SESSION_FILE)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save session")
 		return nil
 	}
 
-	newNotifier := Notifier{
-		internalClient: fcmClient,
+	newDecryptor, err := decryptor.NewDecryptor(s.OwnerKey)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create decryptor")
+		return nil
+	}
 
-		loggerCtx: ctx,
+	semanticLocations, err := getSemanticLocations()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get semantic locations")
+		return nil
+	}
+
+	newNotifier := Client{
+		internalClient: fcmClient,
+		decryptor:      newDecryptor,
+		publisher:      publisher,
+
+		semanticLocations: semanticLocations,
+
+		session: s,
+		ctx:     &ctx,
 	}
 
 	return &newNotifier
 }
 
-func (n *Notifier) StartListening() error {
-	log := log.Ctx(n.loggerCtx)
+// StartListening starts listening for messages
+// this is a non-blocking call
+func (n *Client) StartListening(ctx context.Context) error {
+	n.internalClient.OnDataMessage = n.onDataMessage
+	n.internalClient.OnRawMessage = n.OnRawMessage
 
-	n.internalClient.OnDataMessage = func(message []byte) {
-		log.Info().Bytes("msg", message).Msg("received data message")
-	}
+	go func(ctx context.Context) {
+		log := log.Ctx(ctx)
 
-	n.internalClient.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) {
-		appData := message.GetAppData()
-
-		fcmPayloadIdx := slices.IndexFunc(appData, func(i *fcmreceiver.AppData) bool {
-			key := i.GetKey()
-			isFcmPayload := (key == "com.google.android.apps.adm.FCM_PAYLOAD")
-
-			return isFcmPayload
-		})
-
-		if fcmPayloadIdx == -1 {
-			log.Error().Msg("failed to find FCM payload")
-			return
-		}
-
-		fcmPayloadHex := appData[fcmPayloadIdx].GetValue()
-
-		fcmPayload, err := base64.RawStdEncoding.DecodeString(fcmPayloadHex)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to decode FCM payload")
-			return
-		}
-
-		err = os.WriteFile("message.txt", fcmPayload, 0644)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to write message to file")
-		}
-
-		log.Info().
-			Str("id", *message.Id).
-			Str("from", message.GetFrom()).
-			Str("category", *message.Category).
-			Msg("received raw message")
-	}
-
-	go func() {
+		log.Info().Msg("starting listener")
 		err := n.internalClient.StartListening()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to start listening")
 		}
-	}()
-
-	log.Info().Msg("listening for messages")
+	}(ctx)
 
 	return nil
 }
 
-func (n *Notifier) GetFcmToken() string {
+func (n *Client) onDataMessage(message []byte) {
+	log := log.Ctx(*n.ctx)
+	log.Trace().Bytes("msg", message).Msg("received data message")
+}
+
+var uniqueIdRegex = regexp.MustCompile("[^a-zA-Z0-9]+")
+
+func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
+	log := log.Ctx(*n.ctx)
+
+	appData := message.GetAppData()
+
+	fcmPayloadIdx := slices.IndexFunc(appData, func(i *fcmreceiver.AppData) bool {
+		key := i.GetKey()
+		isFcmPayload := (key == constants.MESSAGE_FCM_PAYLOAD_NAME)
+
+		return isFcmPayload
+	})
+
+	if fcmPayloadIdx == -1 {
+		log.Error().Msg("failed to find FCM payload")
+		return
+	}
+
+	fcmPayloadHex := appData[fcmPayloadIdx].GetValue()
+
+	fcmPayload, err := base64.StdEncoding.DecodeString(fcmPayloadHex)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to decode FCM payload")
+		return
+	}
+
+	var deviceUpdate bindings.DeviceUpdate
+	err = proto.Unmarshal([]byte(fcmPayload), &deviceUpdate)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal device update")
+		return
+	}
+
+	ctx := context.Background()
+	locations, err := n.decryptor.DecryptDeviceUpdate(ctx, &deviceUpdate)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to decrypt device update")
+		return
+	}
+
+	for _, loc := range locations {
+		log.Info().Interface("location", loc).Msg("location")
+		if deviceUpdate.GetDeviceMetadata().GetIdentifierInformation().GetType() != bindings.IdentifierInformationType_IDENTIFIER_ANDROID {
+			deviceName := deviceUpdate.GetDeviceMetadata().GetUserDefinedDeviceName()
+
+			canonicId := deviceUpdate.GetDeviceMetadata().GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
+			canonicIdSplit := strings.Split(canonicId, "-")
+			serial := canonicIdSplit[len(canonicIdSplit)-1]
+			uniqueId := uniqueIdRegex.ReplaceAllString(fmt.Sprintf("%s_%s", deviceName, serial), "_")
+			uniqueId = strings.ToLower(uniqueId)
+
+			if loc.SemanticLocation != "" {
+				semanticLocation, ok := n.semanticLocations[strings.ToLower(loc.SemanticLocation)]
+				if ok {
+					loc.Latitude = float64(semanticLocation.Latitude)
+					loc.Longitude = float64(semanticLocation.Longitude)
+				} else {
+					log.Warn().Str("semantic_location", loc.SemanticLocation).Msg("semantic location not found")
+				}
+			}
+
+			attributes := models.Attributes{
+				Longitude: float32(loc.Longitude),
+				Latitude:  float32(loc.Latitude),
+			}
+
+			n.publisher.UpdateTracker(ctx, uniqueId, attributes)
+		}
+	}
+}
+
+func (n *Client) GetFcmToken() string {
 	fcmToken := n.internalClient.FcmToken
 	return fcmToken
+}
+
+func (n *Client) StopListening() {
+	n.internalClient.Close()
+}
+
+func getSemanticLocations() (map[string]models.Attributes, error) {
+	semanticLocationsFile, err := os.ReadFile("semantic_locations.json")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read semantic locations")
+		return nil, err
+	}
+
+	var semanticLocations struct {
+		Locations []struct {
+			Names     []string `json:"names"`
+			Longitude float32  `json:"longitude"`
+			Latitude  float32  `json:"latitude"`
+		} `json:"locations"`
+	}
+	json.Unmarshal(semanticLocationsFile, &semanticLocations)
+
+	var semanticLocationsMap = make(map[string]models.Attributes)
+	for _, location := range semanticLocations.Locations {
+		for _, name := range location.Names {
+			semanticLocationsMap[strings.ToLower(name)] = models.Attributes{
+				Longitude: location.Longitude,
+				Latitude:  location.Latitude,
+			}
+		}
+	}
+
+	return semanticLocationsMap, nil
 }

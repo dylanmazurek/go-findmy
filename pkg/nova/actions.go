@@ -2,17 +2,18 @@ package nova
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/google/uuid"
 )
 
 func (c *Client) ExecuteAction(canonicId string) error {
 	requestUuid := uuid.New()
 
-	//lastHighTrafficEnablingTime := time.Now().Add(time.Duration(-5 * time.Hour)).Unix()
-	lastHighTrafficEnablingTime := 1732120060
+	lastHighTrafficEnablingTime := time.Now().Add(time.Duration(-5 * time.Hour)).Unix()
+	//lastHighTrafficEnablingTime := 1732120060
 
 	var reqMessage = &bindings.ExecuteActionRequest{
 		Scope: &bindings.ExecuteActionScope{

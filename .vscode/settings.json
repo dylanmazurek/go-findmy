@@ -5,7 +5,7 @@
         "options": [
             "--proto_path=${workspaceRoot}/pkg/nova/models/protos/",
             "--go_out=${workspaceRoot}/pkg/nova/models/protos/bindings",
-            "--go_opt=module=github.com/dylanmazurek/google-findmy/pkg/nova/models/protos/bindings",
+            "--go_opt=module=github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings",
         ]
     }
 }

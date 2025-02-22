@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -46,12 +46,16 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	}
 
 	err := newClient.validateAdmToken()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to validate ADM token")
+	if err == ErrTokenExpired {
+		log.Info().Msg("adm token expired, refreshing")
 		_, err = newClient.getAdmToken()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	authClient, err := createAuthTransport(newClient.session.AdmSession.AdmToken)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session/models"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session/models"
 	"github.com/perimeterx/marshmallow"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -17,10 +17,9 @@ type Session struct {
 	Username      string             `json:"username"`
 	AndroidId     *uint64            `json:"androidId"`
 	SecurityToken *uint64            `json:"securityToken"`
+	OwnerKey      *string            `json:"ownerKey"`
 	FcmSession    *models.FcmSession `json:"fcmSession"`
 	AdmSession    *models.AdmSession `json:"admSession"`
-
-	logCtx context.Context
 }
 
 func (s *Session) GetEmail() string {
@@ -44,6 +43,14 @@ func New(ctx context.Context, f *string) (*Session, error) {
 		}
 	}
 
+	if session.FcmSession == nil {
+		session.FcmSession = &models.FcmSession{}
+	}
+
+	if session.AdmSession == nil {
+		session.AdmSession = &models.AdmSession{}
+	}
+
 	if f == nil {
 		log.Info().Msg("session file not set, creating new session")
 
@@ -56,15 +63,10 @@ func New(ctx context.Context, f *string) (*Session, error) {
 	return &session, nil
 }
 
-// loadSession loads a session from a file
-func (s *Session) LoadSession(f string) error {
-	jsonDetails, err := os.ReadFile(f)
-	if err != nil {
-		return err
-	}
-
+// loadSession loads a session string
+func (s *Session) LoadSession(sessionStr string) error {
 	var session Session
-	_, err = marshmallow.Unmarshal(jsonDetails, &session)
+	_, err := marshmallow.Unmarshal([]byte(sessionStr), &session)
 	if err != nil {
 		return err
 	}
@@ -78,8 +80,6 @@ func (s *Session) LoadSession(f string) error {
 func (s *Session) SaveSession(ctx context.Context, f string) error {
 	log := log.Ctx(ctx)
 
-	log.Info().Msg("saving session")
-
 	jsonDetails, err := json.MarshalIndent(s, "", "\t")
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func (s *Session) SaveSession(ctx context.Context, f string) error {
 		return err
 	}
 
-	log.Info().Msg("session saved")
+	log.Trace().Msg("session saved")
 
 	return nil
 }

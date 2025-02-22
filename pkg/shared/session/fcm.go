@@ -3,8 +3,8 @@ package session
 import (
 	"context"
 
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session/models"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session/models"
 	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/rs/zerolog/log"
 )
@@ -29,7 +29,7 @@ func NewSessionFromClient(c *fcmreceiver.FCMClient) (*models.FcmSession, *uint64
 func (s *Session) NewFCMClient(ctx context.Context, refreshReg bool) (*fcmreceiver.FCMClient, error) {
 	log := log.Ctx(ctx)
 
-	log.Info().Msg("creating new fcm client")
+	log.Trace().Msg("creating new fcm client")
 
 	newClient := fcmreceiver.FCMClient{
 		ProjectID: constants.PROJECT_ID,
@@ -71,7 +71,9 @@ func (s *Session) NewFCMClient(ctx context.Context, refreshReg bool) (*fcmreceiv
 func (s *Session) prepareKeys(ctx context.Context, c *fcmreceiver.FCMClient) error {
 	log := log.Ctx(ctx)
 
-	if s.FcmSession.PrivateKeyBase64 == nil || s.FcmSession.AuthSecret == nil {
+	if s.FcmSession == nil || s.FcmSession.PrivateKeyBase64 == nil || s.FcmSession.AuthSecret == nil {
+		s.FcmSession = &models.FcmSession{}
+
 		privateKey, authSecret, err := c.CreateNewKeys()
 		if err != nil {
 			return err
@@ -86,7 +88,7 @@ func (s *Session) prepareKeys(ctx context.Context, c *fcmreceiver.FCMClient) err
 		return err
 	}
 
-	log.Info().Msg("loaded keys")
+	log.Trace().Msg("loaded keys")
 
 	return nil
 }

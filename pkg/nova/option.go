@@ -1,7 +1,7 @@
 package nova
 
 import (
-	"github.com/dylanmazurek/google-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 )
 
 type Options struct {

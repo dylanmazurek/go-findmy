@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dylanmazurek/google-findmy/pkg/nova/models"
-	"github.com/dylanmazurek/google-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/perimeterx/marshmallow"
 	"github.com/rs/zerolog/log"
 )

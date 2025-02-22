@@ -1,0 +1,15 @@
+name: go-findmy
+
+services:
+  sync-devices:
+    image: sync-devices:latest
+    container_name: sync-devices
+    hostname: sync-devices
+    volumes:
+      - ./session.json:/app/session.json
+      - ./semantic_locations.json:/app/semantic_locations.json
+    env_file:
+      - .env
+    build:
+      dockerfile: Dockerfile
+      context: .
