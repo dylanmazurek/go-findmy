@@ -27,9 +27,9 @@ func main() {
 	// }
 
 	updateRecord := models.Attributes{
-		Latitude:    32.87336,
-		Longitude:   -117.22743,
-		GpsAccuracy: 1.2,
+		Latitude:  32.87336,
+		Longitude: -117.22743,
+		Accuracy:  1.2,
 	}
 
 	_, err = publisher.UpdateTracker(ctx, "", updateRecord)

@@ -3,9 +3,7 @@ package notifier
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -15,6 +13,7 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/decryptor"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/rs/zerolog/log"
@@ -26,13 +25,13 @@ type Client struct {
 	decryptor      *decryptor.Decryptor
 	publisher      *publisher.Client
 
-	semanticLocations map[string]models.Attributes
+	semanticLocations []shared.SemanticLocation
 
 	session *session.Session
 	ctx     *context.Context
 }
 
-func NewClient(ctx context.Context, s *session.Session, p *publisher.Client) (*Client, error) {
+func NewClient(ctx context.Context, s *session.Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
 	log := log.Ctx(ctx)
 
 	log.Trace().Msg("creating new notifier")
@@ -49,18 +48,12 @@ func NewClient(ctx context.Context, s *session.Session, p *publisher.Client) (*C
 		return nil, err
 	}
 
-	semanticLocations, err := getSemanticLocations()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get semantic locations")
-		return nil, err
-	}
-
 	newNotifier := Client{
 		internalClient: fcmClient,
 		decryptor:      newDecryptor,
 		publisher:      p,
 
-		semanticLocations: semanticLocations,
+		semanticLocations: sl,
 
 		session: s,
 		ctx:     &ctx,
@@ -148,8 +141,13 @@ func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
 
 			var attributes models.Attributes
 			if isSemanticLocation {
-				semanticLocation, ok := n.semanticLocations[strings.ToLower(loc.SemanticLocation)]
-				if ok {
+				semanticLocationIdx := slices.IndexFunc(n.semanticLocations, func(i shared.SemanticLocation) bool {
+					hasName := slices.Contains(i.Names, loc.SemanticLocation)
+					return hasName
+				})
+
+				if semanticLocationIdx != -1 {
+					semanticLocation := n.semanticLocations[semanticLocationIdx]
 					attributes.Latitude = semanticLocation.Latitude
 					attributes.Longitude = semanticLocation.Longitude
 					attributes.Accuracy = 10
@@ -163,7 +161,10 @@ func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
 				attributes.Longitude = float32(loc.Longitude)
 				attributes.Altitude = float32(loc.Altitude)
 
-				accuracy := deviceUpdate.GetDeviceMetadata().GetInformation().GetLocationInformation().GetReports().RecentLocationAndNetworkLocations.GetRecentLocation().GetGeoLocation().GetAccuracy()
+				accuracy := deviceUpdate.GetDeviceMetadata().
+					GetInformation().GetLocationInformation().
+					GetReports().RecentLocationAndNetworkLocations.
+					GetRecentLocation().GetGeoLocation().GetAccuracy()
 				attributes.Accuracy = accuracy
 			}
 
@@ -179,33 +180,4 @@ func (n *Client) GetFcmToken() string {
 
 func (n *Client) StopListening() {
 	n.internalClient.Close()
-}
-
-func getSemanticLocations() (map[string]models.Attributes, error) {
-	semanticLocationsFile, err := os.ReadFile("semantic_locations.json")
-	if err != nil {
-		log.Error().Err(err).Msg("failed to read semantic locations")
-		return nil, err
-	}
-
-	var semanticLocations struct {
-		Locations []struct {
-			Names     []string `json:"names"`
-			Longitude float32  `json:"longitude"`
-			Latitude  float32  `json:"latitude"`
-		} `json:"locations"`
-	}
-	json.Unmarshal(semanticLocationsFile, &semanticLocations)
-
-	var semanticLocationsMap = make(map[string]models.Attributes)
-	for _, location := range semanticLocations.Locations {
-		for _, name := range location.Names {
-			semanticLocationsMap[strings.ToLower(name)] = models.Attributes{
-				Longitude: location.Longitude,
-				Latitude:  location.Latitude,
-			}
-		}
-	}
-
-	return semanticLocationsMap, nil
 }

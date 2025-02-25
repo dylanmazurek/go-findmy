@@ -9,6 +9,7 @@ import (
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
+	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/rs/zerolog/log"
@@ -68,7 +69,23 @@ func (f *FindMy) initClients(ctx context.Context) error {
 		return err
 	}
 
-	notifyClient, err := notifier.NewClient(ctx, session, publisher)
+	semanticLocationsIrf, ok := vaultSecret["SEMANTIC_LOCATIONS"].([]interface{})
+	if !ok {
+		return fmt.Errorf("SEMANTIC_LOCATIONS not found in vault secret")
+	}
+
+	semanticLocationsBytes, err := json.Marshal(semanticLocationsIrf)
+	if err != nil {
+		return err
+	}
+
+	var semanticLocations []shared.SemanticLocation
+	err = json.Unmarshal([]byte(semanticLocationsBytes), &semanticLocations)
+	if err != nil {
+		return err
+	}
+
+	notifyClient, err := notifier.NewClient(ctx, session, publisher, semanticLocations)
 	if err != nil {
 		return err
 	}

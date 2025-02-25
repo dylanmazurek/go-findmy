@@ -24,7 +24,10 @@ func main() {
 		panic(err)
 	}
 
-	n := notifier.NewClient(ctx, session, nil)
+	n, err := notifier.NewClient(ctx, session, nil, nil)
+	if err != nil {
+		panic(err)
+	}
 
 	err = n.StartListening(ctx)
 	if err != nil {
