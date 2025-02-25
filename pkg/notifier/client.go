@@ -32,7 +32,7 @@ type Client struct {
 	ctx     *context.Context
 }
 
-func NewClient(ctx context.Context, s *session.Session, publisher *publisher.Client) *Client {
+func NewClient(ctx context.Context, s *session.Session, p *publisher.Client) (*Client, error) {
 	log := log.Ctx(ctx)
 
 	log.Trace().Msg("creating new notifier")
@@ -40,31 +40,25 @@ func NewClient(ctx context.Context, s *session.Session, publisher *publisher.Cli
 	fcmClient, err := s.NewFCMClient(ctx, true)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create FCM client")
-		return nil
-	}
-
-	err = s.SaveSession(ctx, constants.DEFAULT_SESSION_FILE)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to save session")
-		return nil
+		return nil, err
 	}
 
 	newDecryptor, err := decryptor.NewDecryptor(s.OwnerKey)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create decryptor")
-		return nil
+		return nil, err
 	}
 
 	semanticLocations, err := getSemanticLocations()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get semantic locations")
-		return nil
+		return nil, err
 	}
 
 	newNotifier := Client{
 		internalClient: fcmClient,
 		decryptor:      newDecryptor,
-		publisher:      publisher,
+		publisher:      p,
 
 		semanticLocations: semanticLocations,
 
@@ -72,7 +66,7 @@ func NewClient(ctx context.Context, s *session.Session, publisher *publisher.Cli
 		ctx:     &ctx,
 	}
 
-	return &newNotifier
+	return &newNotifier, nil
 }
 
 // StartListening starts listening for messages
@@ -150,20 +144,27 @@ func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
 			serial := canonicIdSplit[len(canonicIdSplit)-1]
 			uniqueId := uniqueIdRegex.ReplaceAllString(fmt.Sprintf("%s_%s", deviceName, serial), "_")
 			uniqueId = strings.ToLower(uniqueId)
+			isSemanticLocation := (loc.SemanticLocation != "")
 
-			if loc.SemanticLocation != "" {
+			var attributes models.Attributes
+			if isSemanticLocation {
 				semanticLocation, ok := n.semanticLocations[strings.ToLower(loc.SemanticLocation)]
 				if ok {
-					loc.Latitude = float64(semanticLocation.Latitude)
-					loc.Longitude = float64(semanticLocation.Longitude)
+					attributes.Latitude = semanticLocation.Latitude
+					attributes.Longitude = semanticLocation.Longitude
+					attributes.Accuracy = 10
 				} else {
 					log.Warn().Str("semantic_location", loc.SemanticLocation).Msg("semantic location not found")
 				}
 			}
 
-			attributes := models.Attributes{
-				Longitude: float32(loc.Longitude),
-				Latitude:  float32(loc.Latitude),
+			if !isSemanticLocation {
+				attributes.Latitude = float32(loc.Latitude)
+				attributes.Longitude = float32(loc.Longitude)
+				attributes.Altitude = float32(loc.Altitude)
+
+				accuracy := deviceUpdate.GetDeviceMetadata().GetInformation().GetLocationInformation().GetReports().RecentLocationAndNetworkLocations.GetRecentLocation().GetGeoLocation().GetAccuracy()
+				attributes.Accuracy = accuracy
 			}
 
 			n.publisher.UpdateTracker(ctx, uniqueId, attributes)

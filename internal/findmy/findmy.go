@@ -13,8 +13,7 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/rs/zerolog/log"
 )
@@ -24,20 +23,15 @@ type FindMy struct {
 	notifyClient    *notifier.Client
 	publisherClient *publisher.Client
 
+	vaultClient       *vault.Client
 	internalScheduler gocron.Scheduler
 }
 
 func NewFindMy() (*FindMy, error) {
 	ctx := context.Background()
 
-	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := session.New(ctx, &sessionFile)
-	if err != nil {
-		return nil, err
-	}
-
 	var newFindMy FindMy
-	err = newFindMy.initClients(ctx, session)
+	err := newFindMy.initClients(ctx)
 	if err != nil {
 		return nil, err
 	}
