@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajg/form"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/perimeterx/marshmallow"
@@ -16,12 +17,12 @@ import (
 )
 
 type addAuthHeaderTransport struct {
-	T     http.RoundTripper
-	Token *string
+	T    http.RoundTripper
+	Auth *models.Auth
 }
 
 func (adt *addAuthHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	bearerAuth := fmt.Sprintf("Bearer %s", *adt.Token)
+	bearerAuth := fmt.Sprintf("Bearer %s", adt.Auth.Token)
 	req.Header.Add("Authorization", bearerAuth)
 	req.Header.Add("Accept-Language", constants.NOVA_API_LANGUAGE)
 	req.Header.Add("User-Agent", constants.NOVA_USER_AGENT)
@@ -30,11 +31,11 @@ func (adt *addAuthHeaderTransport) RoundTrip(req *http.Request) (*http.Response,
 	return adt.T.RoundTrip(req)
 }
 
-func createAuthTransport(token string) (*http.Client, error) {
+func (c *Client) createAuthTransport() (*http.Client, error) {
 	authClient := &http.Client{
 		Transport: &addAuthHeaderTransport{
-			T:     http.DefaultTransport,
-			Token: &token,
+			T:    http.DefaultTransport,
+			Auth: c.auth,
 		},
 	}
 
@@ -42,7 +43,11 @@ func createAuthTransport(token string) (*http.Client, error) {
 }
 
 func (c *Client) validateAdmToken() error {
-	urlPath := fmt.Sprintf("%s?access_token=%s", constants.GOOGLE_TOKEN_INFO_URL, c.session.AdmSession.AdmToken)
+	if c.auth == nil {
+		return ErrTokenExpired
+	}
+
+	urlPath := fmt.Sprintf("%s?access_token=%s", constants.GOOGLE_TOKEN_INFO_URL, c.auth.Token)
 	req, err := http.NewRequest("GET", urlPath, nil)
 	if err != nil {
 		return err
@@ -72,7 +77,7 @@ func (c *Client) validateAdmToken() error {
 	return nil
 }
 
-func (c *Client) getAdmToken() (*string, error) {
+func (c *Client) getAdmToken() (*models.Auth, error) {
 	var service = fmt.Sprintf("oauth2:https://www.googleapis.com/auth/%s", constants.NOVA_CLIENT_SCOPE)
 
 	formData := url.Values{}
@@ -123,20 +128,18 @@ func (c *Client) getAdmToken() (*string, error) {
 	}
 
 	respQuery := strings.ReplaceAll(string(bodyBytes), "\n", "&")
-	respValues, err := url.ParseQuery(respQuery)
+
+	decoder := form.NewDecoder(strings.NewReader(respQuery))
+
+	var auth models.Auth
+	err = decoder.Decode(&auth)
 	if err != nil {
 		return nil, err
 	}
 
-	token := respValues.Get("Auth")
-
 	log.Info().Msg("fetched adm token")
 
-	c.session.AdmSession.AdmToken = token
-	err = c.session.SaveSession(c.loggerCtx, constants.DEFAULT_SESSION_FILE)
-	if err != nil {
-		return &token, err
-	}
+	c.auth = &auth
 
-	return &token, nil
+	return &auth, nil
 }

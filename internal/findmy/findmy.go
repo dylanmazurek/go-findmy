@@ -113,7 +113,7 @@ func (f *FindMy) Start(ctx context.Context) error {
 func (f *FindMy) GetDevices(ctx context.Context) []pubModels.Device {
 	log := log.Ctx(ctx)
 
-	devices, err := f.novaClient.GetDevices()
+	devices, err := f.novaClient.GetDevices(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to get devices")
 	}

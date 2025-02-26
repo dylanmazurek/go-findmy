@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/google/uuid"
@@ -21,6 +23,7 @@ type Client struct {
 
 	clientUuid string
 	session    *session.Session
+	auth       *models.Auth
 
 	loggerCtx context.Context
 }
@@ -58,7 +61,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		return nil, err
 	}
 
-	authClient, err := createAuthTransport(newClient.session.AdmSession.AdmToken)
+	authClient, err := newClient.createAuthTransport()
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +97,20 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 		return nil, err
 	}
 
+	if c.auth.Expiry().Before(time.Now()) {
+		log.Info().Msg("auth token expired, refreshing")
+		_, err = c.getAdmToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return req, nil
 }
 
-func (c *Client) Do(req *http.Request, resp interface{}) error {
+func (c *Client) Do(ctx context.Context, req *http.Request, resp interface{}) error {
+	log := log.Ctx(ctx)
+
 	httpResponse, err := c.internalClient.Do(req)
 	if err != nil || httpResponse == nil || httpResponse.StatusCode >= 400 {
 		if httpResponse != nil {

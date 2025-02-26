@@ -10,7 +10,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Client) GetDevices() (*bindings.DevicesList, error) {
+func (c *Client) GetDevices(ctx context.Context) (*bindings.DevicesList, error) {
+	log := log.Ctx(ctx)
+
+	log.Info().Msg("getting devices")
+
 	requestUuid := uuid.New()
 
 	var reqMessage = &bindings.DevicesListRequest{
@@ -26,7 +30,7 @@ func (c *Client) GetDevices() (*bindings.DevicesList, error) {
 	}
 
 	var deviceList bindings.DevicesList
-	err = c.Do(req, &deviceList)
+	err = c.Do(ctx, req, &deviceList)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +41,7 @@ func (c *Client) GetDevices() (*bindings.DevicesList, error) {
 func (c *Client) RefreshAllDevices(ctx context.Context) error {
 	log := log.Ctx(ctx)
 
-	devices, err := c.GetDevices()
+	devices, err := c.GetDevices(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,7 +67,7 @@ func (c *Client) RefreshAllDevices(ctx context.Context) error {
 
 		log.Trace().Str("canonicId", canonicId).Msg("executing action")
 
-		err := c.ExecuteAction(canonicId)
+		err := c.ExecuteAction(ctx, canonicId)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
 package nova
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -9,11 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func (c *Client) ExecuteAction(canonicId string) error {
+func (c *Client) ExecuteAction(ctx context.Context, canonicId string) error {
 	requestUuid := uuid.New()
 
 	lastHighTrafficEnablingTime := time.Now().Add(time.Duration(-5 * time.Hour)).Unix()
-	//lastHighTrafficEnablingTime := 1732120060
 
 	var reqMessage = &bindings.ExecuteActionRequest{
 		Scope: &bindings.ExecuteActionScope{
@@ -48,7 +48,7 @@ func (c *Client) ExecuteAction(canonicId string) error {
 		return err
 	}
 
-	err = c.Do(req, nil)
+	err = c.Do(ctx, req, nil)
 	if err != nil {
 		return err
 	}

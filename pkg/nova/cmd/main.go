@@ -9,6 +9,7 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/markkurossi/tabulate"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -29,12 +30,16 @@ func main() {
 		panic(err)
 	}
 
-	//listDevices(novaClient)
-	executeAction(novaClient, "670be2bb-0000-2c56-b3c9-089e0832f140")
+	listDevices(ctx, novaClient)
+	executeAction(ctx, novaClient, "670be2bb-0000-2c56-b3c9-089e0832f140")
 }
 
-func listDevices(novaClient *nova.Client) error {
-	devices, err := novaClient.GetDevices()
+func listDevices(ctx context.Context, novaClient *nova.Client) error {
+	log := log.Ctx(ctx)
+
+	log.Info().Msg("getting devices")
+
+	devices, err := novaClient.GetDevices(ctx)
 	if err != nil {
 		return err
 	}
@@ -72,8 +77,12 @@ func listDevices(novaClient *nova.Client) error {
 	return nil
 }
 
-func executeAction(novaClient *nova.Client, canonicId string) error {
-	err := novaClient.ExecuteAction(canonicId)
+func executeAction(ctx context.Context, novaClient *nova.Client, canonicId string) error {
+	log := log.Ctx(ctx)
+
+	log.Trace().Str("canonicId", canonicId).Msg("executing action")
+
+	err := novaClient.ExecuteAction(ctx, canonicId)
 
 	return err
 }
