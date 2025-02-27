@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
+	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/markkurossi/tabulate"
 	"github.com/rs/zerolog/log"
 )
@@ -15,8 +17,34 @@ import (
 func main() {
 	ctx := context.Background()
 
-	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := session.New(ctx, &sessionFile)
+	log.Trace().Msg("initializing clients")
+	vaultAddr := os.Getenv("VAULT_ADDR")
+	vaultAppRoleId := os.Getenv("VAULT_APPROLE_ID")
+	vaultSecretId := os.Getenv("VAULT_SECRET_ID")
+
+	vaultClient, err := vault.NewClient(ctx, vaultAddr, vaultAppRoleId, vaultSecretId)
+	if err != nil {
+		panic(err)
+	}
+
+	vaultSecret, err := vaultClient.GetSecret(ctx, "kv", "go-findmy")
+	if err != nil {
+		panic(err)
+	}
+
+	sessionIrf, ok := vaultSecret["SESSION"].(map[string]interface{})
+	if !ok {
+		err := fmt.Errorf("SESSION not found in vault secret")
+		panic(err)
+	}
+
+	sessionBytes, err := json.Marshal(sessionIrf)
+	if err != nil {
+		panic(err)
+	}
+
+	var session *session.Session
+	err = json.Unmarshal([]byte(sessionBytes), &session)
 	if err != nil {
 		panic(err)
 	}

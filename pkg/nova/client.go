@@ -97,7 +97,9 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 		return nil, err
 	}
 
-	if c.auth.Expiry().Before(time.Now()) {
+	expiry := c.auth.Expiry()
+	timeNow := time.Now()
+	if expiry.Before(timeNow) {
 		log.Info().Msg("auth token expired, refreshing")
 		_, err = c.getAdmToken()
 		if err != nil {

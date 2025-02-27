@@ -59,7 +59,12 @@ func NewFindMy() (*FindMy, error) {
 func (f *FindMy) AddJobs(ctx context.Context) error {
 	log := log.Ctx(ctx)
 
-	job := gocron.CronJob("*/20 * * * *", false)
+	cronSchedule, hasCronSchedule := os.LookupEnv("CRON_SCHEDULE")
+	if !hasCronSchedule {
+		cronSchedule = "*/20 * * * *"
+	}
+
+	job := gocron.CronJob(cronSchedule, false)
 	task := gocron.NewTask(func(ctx context.Context) {
 		log.Info().Msg("refreshing devices")
 		novaClient := f.novaClient

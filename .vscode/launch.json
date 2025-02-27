@@ -25,6 +25,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/pkg/nova/cmd/main.go",
+            "envFile": "${workspaceFolder}/.env",
             "cwd": "${workspaceFolder}/",
         },
         {
