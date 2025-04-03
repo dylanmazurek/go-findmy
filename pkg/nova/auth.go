@@ -132,10 +132,11 @@ func (c *Client) getAdmToken() (*models.Auth, error) {
 	decoder := form.NewDecoder(strings.NewReader(respQuery))
 
 	var auth models.Auth
-	err = decoder.Decode(&auth)
-	if err != nil {
+	if err = decoder.Decode(&auth); err != nil {
 		return nil, err
 	}
+
+	auth.ReceivedAt = time.Now()
 
 	log.Info().Msg("fetched adm token")
 

@@ -24,7 +24,6 @@ func (f *FindMy) GetDevices(ctx context.Context) []pubModels.Device {
 
 		serial, err := internal.FormatUniqueId(device)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to format unique id")
 			continue
 		}
 

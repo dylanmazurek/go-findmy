@@ -11,6 +11,8 @@ type Auth struct {
 
 	ExpiryInt       int `form:"Expiry"`
 	ExpiresInSecInt int `form:"ExpiresInDurationSec"`
+
+	ReceivedAt time.Time
 }
 
 func (a *Auth) Expiry() *time.Time {
@@ -18,10 +20,20 @@ func (a *Auth) Expiry() *time.Time {
 		return nil
 	}
 
-	if a.ExpiryInt == 0 {
-		return nil
+	if a.ReceivedAt.IsZero() {
+		a.ReceivedAt = time.Now()
 	}
 
-	expiryTime := time.Unix(int64(a.ExpiryInt), 0)
-	return &expiryTime
+	if a.ExpiryInt > 0 {
+		expiryTime := time.Unix(int64(a.ExpiryInt), 0)
+		return &expiryTime
+	}
+
+	if a.ExpiresInSecInt > 0 {
+		expiryTime := a.ReceivedAt.Add(time.Duration(a.ExpiresInSecInt) * time.Second)
+		return &expiryTime
+	}
+
+	pastTime := time.Now().Add(-1 * time.Minute)
+	return &pastTime
 }

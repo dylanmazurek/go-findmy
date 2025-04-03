@@ -50,7 +50,6 @@ func (c *Client) RefreshAllDevices(ctx context.Context) error {
 	for _, device := range devices.DeviceMetadata {
 		firstCanonicId, err := internal.FormatUniqueId(device)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to format unique ID")
 			continue
 		}
 
