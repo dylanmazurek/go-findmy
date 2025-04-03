@@ -1,7 +1,6 @@
 package decryptor
 
 import (
-	"context"
 	"crypto/aes"
 	"crypto/sha256"
 	"fmt"
@@ -13,22 +12,26 @@ import (
 	"github.com/deatil/go-cryptobin/elliptic/secp"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/models"
-	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
 )
 
 func decryptSemantic(loc *bindings.LocationReport) (*models.LocationReport, error) {
 	semanticLocation := loc.GetSemanticLocation()
+	if semanticLocation == nil {
+		return nil, fmt.Errorf("semantic location is nil")
+	}
+
+	semanticLocationName := semanticLocation.GetLocationName()
 
 	newLocation := &models.LocationReport{
-		ReportType:       "semantic",
-		SemanticLocation: semanticLocation.GetLocationName(),
+		ReportType:   models.ReportTypeSemantic,
+		SemanticName: &semanticLocationName,
 	}
 
 	return newLocation, nil
 }
 
-func decryptReport(ctx context.Context, loc *bindings.LocationReport, identityKey []byte) (*models.LocationReport, error) {
+func decryptReport(loc *bindings.LocationReport, identityKey []byte) (*models.LocationReport, error) {
 	encryptedLocation := loc.GetGeoLocation().GetEncryptedReport().GetEncryptedLocation()
 	publicKeyRandom := loc.GetGeoLocation().GetEncryptedReport().GetPublicKeyRandom()
 	hasPublicKey := len(publicKeyRandom) != 0
@@ -36,7 +39,7 @@ func decryptReport(ctx context.Context, loc *bindings.LocationReport, identityKe
 	var decryptedLocation []byte
 	var err error
 	if !hasPublicKey {
-		location, err := decryptLocation(ctx, encryptedLocation, identityKey)
+		location, err := decryptLocation(encryptedLocation, identityKey)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +47,7 @@ func decryptReport(ctx context.Context, loc *bindings.LocationReport, identityKe
 		decryptedLocation = location
 	} else {
 		beaconTimerCounter := loc.GetGeoLocation().DeviceTimeOffset
-		decryptedLocation, err = decryptLocationWithPublicKey(ctx, encryptedLocation, publicKeyRandom, beaconTimerCounter, identityKey)
+		decryptedLocation, err = decryptLocationWithPublicKey(encryptedLocation, publicKeyRandom, beaconTimerCounter, identityKey)
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +60,7 @@ func decryptReport(ctx context.Context, loc *bindings.LocationReport, identityKe
 	}
 
 	newLocation := &models.LocationReport{
-		ReportType: "location",
+		ReportType: models.ReportTypeLocation,
 		Latitude:   float64(protoLoc.GetLatitude()) / 1e7,
 		Longitude:  float64(protoLoc.GetLongitude()) / 1e7,
 		Altitude:   float64(protoLoc.GetAltitude()),
@@ -66,12 +69,9 @@ func decryptReport(ctx context.Context, loc *bindings.LocationReport, identityKe
 	return newLocation, nil
 }
 
-func decryptLocation(ctx context.Context, encryptedLocation []byte, identityKey []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-	_ = log
-
+func decryptLocation(encryptedLocation []byte, identityKey []byte) ([]byte, error) {
 	identityKeyHash := sha256.Sum256(identityKey)
-	decryptedLocation, err := decryptAesGcm(ctx, identityKeyHash[:], encryptedLocation)
+	decryptedLocation, err := decryptAesGcm(identityKeyHash[:], encryptedLocation)
 	if err != nil {
 		return nil, err
 	}
@@ -79,11 +79,7 @@ func decryptLocation(ctx context.Context, encryptedLocation []byte, identityKey 
 	return decryptedLocation, nil
 }
 
-func decryptLocationWithPublicKey(ctx context.Context, encryptedAndTag []byte, sxBytes []byte, beaconTime uint32, identityKey []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-
-	_ = log
-
+func decryptLocationWithPublicKey(encryptedAndTag []byte, sxBytes []byte, beaconTime uint32, identityKey []byte) ([]byte, error) {
 	var curve = secp.P160r1()
 
 	encryptedMessage := encryptedAndTag[:len(encryptedAndTag)-16]
@@ -116,7 +112,7 @@ func decryptLocationWithPublicKey(ctx context.Context, encryptedAndTag []byte, s
 
 	nonce := append(lRx, lSx...)
 
-	decrypted, err := decryptAes(ctx, encryptedMessage, tag, nonce, k)
+	decrypted, err := decryptAes(encryptedMessage, tag, nonce, k)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
@@ -124,29 +120,19 @@ func decryptLocationWithPublicKey(ctx context.Context, encryptedAndTag []byte, s
 	return decrypted, nil
 }
 
-func decryptAes(ctx context.Context, data []byte, tag []byte, nonce []byte, key []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-
-	log.Info().Msgf("data: \t%x", data)
-	log.Info().Msgf("tag: \t%x", tag)
-	log.Info().Msgf("nonce: \t%x", nonce)
-	log.Info().Msgf("key: \t%x", key)
-
+func decryptAes(data []byte, tag []byte, nonce []byte, key []byte) ([]byte, error) {
 	aesCipher, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
-	// Combine the ciphertext and tag into one slice.
 	ciphertextWithTag := append(data, tag...)
 
-	// Create an EAX instance.
 	eaxInstance, err := eax.NewEAX(aesCipher)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create EAX: %w", err)
 	}
 
-	// Decrypt using the combined ciphertext.
 	decrypted, err := eaxInstance.Open(nil, nonce, ciphertextWithTag, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)

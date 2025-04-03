@@ -3,10 +3,8 @@ package notifier
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
-	"regexp"
+	"os"
 	"slices"
-	"strings"
 
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
 	"github.com/dylanmazurek/go-findmy/internal/publisher/models"
@@ -20,15 +18,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var semanticLocations []shared.SemanticLocation
+
 type Client struct {
 	internalClient *fcmreceiver.FCMClient
 	decryptor      *decryptor.Decryptor
 	publisher      *publisher.Client
 
-	semanticLocations []shared.SemanticLocation
-
-	session *session.Session
-	ctx     *context.Context
+	session     *session.Session
+	publishMqtt bool
 }
 
 func NewClient(ctx context.Context, s *session.Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
@@ -48,25 +46,28 @@ func NewClient(ctx context.Context, s *session.Session, p *publisher.Client, sl 
 		return nil, err
 	}
 
+	publishMqttEnv, hasPublishMqtt := os.LookupEnv("PUBLISH_MQTT")
+	if !hasPublishMqtt {
+		publishMqttEnv = "false"
+	}
+
+	semanticLocations = sl
+
 	newNotifier := Client{
 		internalClient: fcmClient,
 		decryptor:      newDecryptor,
 		publisher:      p,
 
-		semanticLocations: sl,
-
-		session: s,
-		ctx:     &ctx,
+		session:     s,
+		publishMqtt: publishMqttEnv == "true",
 	}
 
 	return &newNotifier, nil
 }
 
-// StartListening starts listening for messages
-// this is a non-blocking call
 func (n *Client) StartListening(ctx context.Context) error {
-	n.internalClient.OnDataMessage = n.onDataMessage
-	n.internalClient.OnRawMessage = n.OnRawMessage
+	n.internalClient.OnDataMessage = func(message []byte) { n.onDataMessage(ctx, message) }
+	n.internalClient.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) { n.OnRawMessage(ctx, message) }
 
 	go func(ctx context.Context) {
 		log := log.Ctx(ctx)
@@ -81,15 +82,15 @@ func (n *Client) StartListening(ctx context.Context) error {
 	return nil
 }
 
-func (n *Client) onDataMessage(message []byte) {
-	log := log.Ctx(*n.ctx)
+func (n *Client) onDataMessage(ctx context.Context, message []byte) {
+	log := log.Ctx(ctx)
+
 	log.Trace().Bytes("msg", message).Msg("received data message")
 }
 
-var uniqueIdRegex = regexp.MustCompile("[^a-zA-Z0-9]+")
-
-func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
-	log := log.Ctx(*n.ctx)
+func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMessageStanza) {
+	log := log.Ctx(ctx)
+	log.Trace().Msg("received raw message")
 
 	appData := message.GetAppData()
 
@@ -120,57 +121,61 @@ func (n *Client) OnRawMessage(message *fcmreceiver.DataMessageStanza) {
 		return
 	}
 
-	ctx := context.Background()
 	locations, err := n.decryptor.DecryptDeviceUpdate(ctx, &deviceUpdate)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to decrypt device update")
 		return
 	}
 
+	if len(locations) == 0 {
+		log.Error().Msg("no locations found")
+		return
+	}
+
+	var latestReport *shared.LocationReport
 	for _, loc := range locations {
-		log.Info().Interface("location", loc).Msg("location")
-		if deviceUpdate.GetDeviceMetadata().GetIdentifierInformation().GetType() != bindings.IdentifierInformationType_IDENTIFIER_ANDROID {
-			deviceName := deviceUpdate.GetDeviceMetadata().GetUserDefinedDeviceName()
+		locationReport, err := n.handleReport(ctx, &deviceUpdate, loc)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to handle message")
+			continue
+		}
 
-			canonicId := deviceUpdate.GetDeviceMetadata().GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
-			canonicIdSplit := strings.Split(canonicId, "-")
-			serial := canonicIdSplit[len(canonicIdSplit)-1]
-			uniqueId := uniqueIdRegex.ReplaceAllString(fmt.Sprintf("%s_%s", deviceName, serial), "_")
-			uniqueId = strings.ToLower(uniqueId)
-			isSemanticLocation := (loc.SemanticLocation != "")
-
-			var attributes models.Attributes
-			if isSemanticLocation {
-				semanticLocationIdx := slices.IndexFunc(n.semanticLocations, func(i shared.SemanticLocation) bool {
-					hasName := slices.Contains(i.Names, loc.SemanticLocation)
-					return hasName
-				})
-
-				if semanticLocationIdx != -1 {
-					semanticLocation := n.semanticLocations[semanticLocationIdx]
-					attributes.Latitude = semanticLocation.Latitude
-					attributes.Longitude = semanticLocation.Longitude
-					attributes.Accuracy = 10
-				} else {
-					log.Warn().Str("semantic_location", loc.SemanticLocation).Msg("semantic location not found")
-				}
-			}
-
-			if !isSemanticLocation {
-				attributes.Latitude = float32(loc.Latitude)
-				attributes.Longitude = float32(loc.Longitude)
-				attributes.Altitude = float32(loc.Altitude)
-
-				accuracy := deviceUpdate.GetDeviceMetadata().
-					GetInformation().GetLocationInformation().
-					GetReports().RecentLocationAndNetworkLocations.
-					GetRecentLocation().GetGeoLocation().GetAccuracy()
-				attributes.Accuracy = accuracy
-			}
-
-			n.publisher.UpdateTracker(ctx, uniqueId, attributes)
+		if latestReport == nil || locationReport.ReportTime.After(latestReport.ReportTime) {
+			latestReport = locationReport
 		}
 	}
+
+	if latestReport == nil {
+		log.Error().Msg("latest report is nil")
+		return
+	}
+
+	if n.publishMqtt {
+		pubReport := models.Report{
+			UniqueId:  *latestReport.UniqueId,
+			Latitude:  latestReport.Latitude,
+			Longitude: latestReport.Longitude,
+			Altitude:  latestReport.Altitude,
+			Accuracy:  latestReport.Accuracy,
+		}
+
+		_, err := n.publisher.UpdateTracker(ctx, pubReport)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to publish update")
+		}
+
+		log.Debug().Str("unique_id", pubReport.UniqueId).Msg("published location update")
+	}
+
+	deviceName := deviceUpdate.DeviceMetadata.GetUserDefinedDeviceName()
+
+	log.Info().
+		Str("name", deviceName).
+		Int("count", len(locations)).
+		Float64("latitude", latestReport.Latitude).
+		Float64("longitude", latestReport.Longitude).
+		Float64("accuracy", latestReport.Accuracy).
+		Msg("report")
 }
 
 func (n *Client) GetFcmToken() string {

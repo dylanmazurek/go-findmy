@@ -1,12 +1,9 @@
 package decryptor
 
 import (
-	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Decryptor struct {
@@ -15,7 +12,8 @@ type Decryptor struct {
 
 func NewDecryptor(ownerKey *string) (*Decryptor, error) {
 	if ownerKey == nil {
-		return nil, fmt.Errorf("owner key is nil")
+		err := fmt.Errorf("owner key is nil")
+		return nil, err
 	}
 
 	newDecryptor := &Decryptor{
@@ -25,33 +23,29 @@ func NewDecryptor(ownerKey *string) (*Decryptor, error) {
 	return newDecryptor, nil
 }
 
-func decryptEik(ctx context.Context, ownerKey []byte, encryptedEik []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-	_ = log
-
+func decryptEik(ownerKey []byte, encryptedEik []byte) ([]byte, error) {
 	eikLen := len(encryptedEik)
-	if eikLen == 48 {
-		return decryptAesNoPadding(ctx, ownerKey, encryptedEik)
+
+	var err error
+	var validKey []byte
+	switch eikLen {
+	case 48:
+		validKey, err = decryptAesNoPadding(ownerKey, encryptedEik)
+	case 60:
+		validKey, err = decryptAesGcm(ownerKey, encryptedEik)
+	default:
+		err = fmt.Errorf("invalid eik length: %d", eikLen)
 	}
 
-	if eikLen == 60 {
-		log.Info().Msgf("owner key: %x", ownerKey)
-		log.Info().Msgf("encrypted Eik: %x", encryptedEik)
-
-		return decryptAesGcm(ctx, ownerKey, encryptedEik)
-	}
-
-	return nil, fmt.Errorf("the encrypted Eik has invalid length: %d", eikLen)
+	return validKey, err
 }
 
-func decryptAesNoPadding(ctx context.Context, ownerKey []byte, encryptedData []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-	_ = log
-
+func decryptAesNoPadding(ownerKey []byte, encryptedData []byte) ([]byte, error) {
 	validKey := prepareAESKey(ownerKey)
 
 	if len(encryptedData) <= aes.BlockSize {
-		return nil, fmt.Errorf("invalid data length: %d", len(encryptedData))
+		err := fmt.Errorf("invalid data length: %d", len(encryptedData))
+		return nil, err
 	}
 
 	iv := encryptedData[:aes.BlockSize]
@@ -59,7 +53,8 @@ func decryptAesNoPadding(ctx context.Context, ownerKey []byte, encryptedData []b
 
 	block, err := aes.NewCipher(validKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aes cipher: %w", err)
+		err := fmt.Errorf("failed to create aes cipher: %w", err)
+		return nil, err
 	}
 
 	mode := cipher.NewCBCDecrypter(block, iv)
@@ -69,26 +64,31 @@ func decryptAesNoPadding(ctx context.Context, ownerKey []byte, encryptedData []b
 	return decryptedData, nil
 }
 
-func decryptAesGcm(ctx context.Context, key, encryptedData []byte) ([]byte, error) {
-	log := log.Ctx(ctx)
-	_ = log
+func decryptAesGcm(key, encryptedData []byte) ([]byte, error) {
+	if len(encryptedData) < 12 {
+		err := fmt.Errorf("invalid data length: %d", len(encryptedData))
+		return nil, err
+	}
 
 	iv := encryptedData[:12]
 	ciphertext := encryptedData[12:]
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
+		err := fmt.Errorf("failed to create AES cipher: %w", err)
+		return nil, err
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %w", err)
+		err := fmt.Errorf("failed to create GCM: %w", err)
+		return nil, err
 	}
 
 	plaintext, err := aesgcm.Open(nil, iv, ciphertext, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %w", err)
+		err := fmt.Errorf("failed to decrypt: %w", err)
+		return nil, err
 	}
 
 	return plaintext, nil

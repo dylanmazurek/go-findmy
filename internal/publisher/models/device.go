@@ -3,13 +3,11 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
-	"strings"
 )
 
 type Device struct {
-	Name        string     `json:"name"`
 	UniqueId    string     `json:"unique_id"`
+	Name        string     `json:"name"`
 	DeviceClass string     `json:"device_class"`
 	Device      DeviceInfo `json:"device"`
 }
@@ -27,14 +25,9 @@ func (d Device) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-var uniqueIdRegex = regexp.MustCompile("[^a-zA-Z0-9]+")
-
-func NewDevice(name string, serial string, model string, manufacturer string) Device {
-	uniqueId := uniqueIdRegex.ReplaceAllString(fmt.Sprintf("%s_%s", name, serial), "_")
-	uniqueId = strings.ToLower(uniqueId)
-
+func NewDevice(name string, uniqueId string, model string, manufacturer string) Device {
 	newDevice := Device{
-		Name:        name,
+		Name:        "Location",
 		UniqueId:    uniqueId,
 		DeviceClass: "device_tracker",
 		Device: DeviceInfo{

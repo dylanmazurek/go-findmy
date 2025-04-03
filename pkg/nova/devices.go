@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/dylanmazurek/go-findmy/internal"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/google/uuid"
@@ -47,27 +48,15 @@ func (c *Client) RefreshAllDevices(ctx context.Context) error {
 	}
 
 	for _, device := range devices.DeviceMetadata {
-		var canonicId string
-		switch device.GetIdentifierInformation().GetType() {
-		case bindings.IdentifierInformationType_IDENTIFIER_ANDROID:
-			phoneInfo := device.GetIdentifierInformation().GetPhoneInformation()
-			if phoneInfo == nil {
-				continue
-			}
-
-			canonicIds := phoneInfo.GetCanonicIds()
-			if canonicIds == nil {
-				continue
-			}
-
-			canonicId = canonicIds.GetCanonicId()[0].GetId()
-		default:
-			canonicId = device.GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
+		firstCanonicId, err := internal.FormatUniqueId(device)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to format unique ID")
+			continue
 		}
 
-		log.Trace().Str("canonicId", canonicId).Msg("executing action")
+		log.Trace().Str("canonicId", *firstCanonicId).Msg("executing action")
 
-		err := c.ExecuteAction(ctx, canonicId)
+		err = c.ExecuteAction(ctx, *firstCanonicId)
 		if err != nil {
 			return err
 		}

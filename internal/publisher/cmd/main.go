@@ -20,20 +20,23 @@ func main() {
 		panic(err)
 	}
 
-	// newDevice := models.NewDevice("Test Device", "test serial", "Test Model", "Test Manufacture")
-	// _, err = publisher.AddDevice(ctx, newDevice)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	updateRecord := models.Attributes{
-		Latitude:  32.87336,
-		Longitude: -117.22743,
-		Accuracy:  1.2,
-	}
-
-	_, err = publisher.UpdateTracker(ctx, "", updateRecord)
+	newDevice := models.NewDevice("Test Device", "test serial", "Test Model", "Test Manufacture")
+	_, err = publisher.AddDevice(ctx, newDevice)
 	if err != nil {
 		panic(err)
 	}
+
+	// report := shared.LocationReport{
+	// 	UniqueId:   nil,
+	// 	ReportType: shared.ReportTypeLocation,
+	// 	ReportTime: time.Now(),
+	// 	Latitude:   37.7749,
+	// 	Longitude:  -122.4194,
+	// 	Altitude:   0,
+	// }
+
+	// _, err = publisher.UpdateTracker(ctx, report)
+	// if err != nil {
+	// 	panic(err)
+	// }
 }

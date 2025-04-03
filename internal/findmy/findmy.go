@@ -4,16 +4,12 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
-	pubModels "github.com/dylanmazurek/go-findmy/internal/publisher/models"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
-	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/rs/zerolog/log"
 )
@@ -23,7 +19,6 @@ type FindMy struct {
 	notifyClient    *notifier.Client
 	publisherClient *publisher.Client
 
-	vaultClient       *vault.Client
 	internalScheduler gocron.Scheduler
 }
 
@@ -36,7 +31,12 @@ func NewFindMy() (*FindMy, error) {
 		return nil, err
 	}
 
-	timezone, err := time.LoadLocation("Australia/Melbourne")
+	timezoneEnv, hasTimezoneEnv := os.LookupEnv("TIMEZONE")
+	if !hasTimezoneEnv {
+		timezoneEnv = "Australia/Melbourne"
+	}
+
+	timezone, err := time.LoadLocation(timezoneEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -113,31 +113,4 @@ func (f *FindMy) Start(ctx context.Context) error {
 	log.Info().Msg("received signal, stopping listener")
 
 	return err
-}
-
-func (f *FindMy) GetDevices(ctx context.Context) []pubModels.Device {
-	log := log.Ctx(ctx)
-
-	devices, err := f.novaClient.GetDevices(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get devices")
-	}
-
-	var pubDevices []pubModels.Device
-	for _, device := range devices.DeviceMetadata {
-		if device.GetIdentifierInformation().GetType() != bindings.IdentifierInformationType_IDENTIFIER_ANDROID {
-			deviceName := device.GetUserDefinedDeviceName()
-			model := device.GetInformation().GetDeviceRegistration().GetModel()
-			manufacturer := device.GetInformation().GetDeviceRegistration().GetManufacturer()
-
-			canonicId := device.GetIdentifierInformation().GetCanonicIds().GetCanonicId()[0].GetId()
-			canonicIdSplit := strings.Split(canonicId, "-")
-			serial := canonicIdSplit[len(canonicIdSplit)-1]
-
-			newPubDevice := pubModels.NewDevice(deviceName, serial, model, manufacturer)
-			pubDevices = append(pubDevices, newPubDevice)
-		}
-	}
-
-	return pubDevices
 }

@@ -53,7 +53,7 @@ func (f *FindMy) initClients(ctx context.Context) error {
 		return err
 	}
 
-	sessionIrf, ok := vaultSecret["SESSION"].(map[string]interface{})
+	sessionIrf, ok := vaultSecret["SESSION"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("SESSION not found in vault secret")
 	}
@@ -69,7 +69,7 @@ func (f *FindMy) initClients(ctx context.Context) error {
 		return err
 	}
 
-	semanticLocationsIrf, ok := vaultSecret["SEMANTIC_LOCATIONS"].([]interface{})
+	semanticLocationsIrf, ok := vaultSecret["SEMANTIC_LOCATIONS"].([]any)
 	if !ok {
 		return fmt.Errorf("SEMANTIC_LOCATIONS not found in vault secret")
 	}

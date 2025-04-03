@@ -1,5 +1,7 @@
 package constants
 
+import "regexp"
+
 // Common constants
 const (
 	GOOGLE_AUTH_URL        = "https://android.clients.google.com/auth"
@@ -41,4 +43,8 @@ const (
 // Constants for the session
 var (
 	DEFAULT_SESSION_FILE = "session.json"
+)
+
+var (
+	UNIQUE_ID_REGEX = regexp.MustCompile("[^a-zA-Z0-9]+")
 )

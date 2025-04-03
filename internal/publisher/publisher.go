@@ -72,13 +72,13 @@ func (c *Client) AddDevice(ctx context.Context, device models.Device) (*paho.Pub
 	return resp, err
 }
 
-func (c *Client) UpdateTracker(ctx context.Context, deviceUniqueId string, attributes models.Attributes) (*paho.PublishResponse, error) {
-	deviceJson, err := json.MarshalIndent(attributes, "", " ")
+func (c *Client) UpdateTracker(ctx context.Context, report models.Report) (*paho.PublishResponse, error) {
+	deviceJson, err := json.MarshalIndent(report, "", " ")
 	if err != nil {
 		return nil, err
 	}
 
-	topic := fmt.Sprintf("findmy2mqtt/%s/attributes", deviceUniqueId)
+	topic := fmt.Sprintf("findmy2mqtt/%s/attributes", report.UniqueId)
 
 	payload := &paho.Publish{
 		QoS:     1,

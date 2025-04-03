@@ -1,8 +1,9 @@
 package models
 
-type Attributes struct {
-	Latitude  float32 `json:"latitude"`
-	Longitude float32 `json:"longitude"`
-	Altitude  float32 `json:"altitude,omitempty"`
-	Accuracy  float32 `json:"gps_accuracy,omitempty"`
+type Report struct {
+	UniqueId  string  `json:"unique_id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Altitude  float64 `json:"altitude,omitempty"`
+	Accuracy  float64 `json:"gps_accuracy,omitempty"`
 }

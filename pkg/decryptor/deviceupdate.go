@@ -19,13 +19,13 @@ func (d *Decryptor) DecryptDeviceUpdate(ctx context.Context, deviceUpdate *bindi
 	encryptedIdentityKey := deviceInformation.GetDeviceRegistration().GetEncryptedUserSecrets().GetEncryptedIdentityKey()
 	ownerKey, err := hex.DecodeString(d.OwnerKey)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to decode owner key")
+		log.Error().Err(err).Msg("failed to decode owner key")
 		return nil, err
 	}
 
-	identityKey, err := decryptEik(ctx, ownerKey, encryptedIdentityKey)
+	identityKey, err := decryptEik(ownerKey, encryptedIdentityKey)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to decrypt EIK")
+		log.Error().Err(err).Msg("failed to decrypt eik")
 		return nil, err
 	}
 
@@ -57,15 +57,15 @@ func (d *Decryptor) DecryptDeviceUpdate(ctx context.Context, deviceUpdate *bindi
 		case bindings.Status_SEMANTIC:
 			loc, err := decryptSemantic(netLoc)
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to decrypt semantic location")
+				log.Error().Err(err).Msg("failed to decrypt semantic location")
 				return nil, err
 			}
 
 			location = *loc
 		default:
-			loc, err := decryptReport(ctx, netLoc, identityKey)
+			loc, err := decryptReport(netLoc, identityKey)
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to decrypt report")
+				log.Error().Err(err).Msg("failed to decrypt report")
 				return nil, err
 			}
 
