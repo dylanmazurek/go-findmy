@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
@@ -51,7 +50,8 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	err := newClient.validateAdmToken()
 	if err == ErrTokenExpired {
 		log.Info().Msg("adm token expired, refreshing")
-		_, err = newClient.getAdmToken()
+
+		err = newClient.refreshAdmToken()
 		if err != nil {
 			return nil, err
 		}
@@ -97,11 +97,11 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 		return nil, err
 	}
 
-	expiry := c.auth.Expiry()
-	timeNow := time.Now()
-	if expiry.Before(timeNow) {
-		log.Info().Msg("auth token expired, refreshing")
-		_, err = c.getAdmToken()
+	tokenValid := c.auth.IsValid()
+	if !tokenValid {
+		log.Info().Msg("adm token invalid, refreshing")
+
+		err = c.refreshAdmToken()
 		if err != nil {
 			return nil, err
 		}

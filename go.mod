@@ -36,7 +36,6 @@ require (
 
 require (
 	github.com/ProtonMail/go-crypto v1.1.5
-	github.com/ajg/form v1.5.1
 	github.com/deatil/go-cryptobin v1.0.5027
 	github.com/eclipse/paho.golang v0.22.0
 	github.com/go-co-op/gocron/v2 v2.15.0

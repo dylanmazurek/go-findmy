@@ -1,39 +1,52 @@
 package models
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
-type Auth struct {
-	IssueAdvice          string `form:"issueAdvice"`
-	StoreConsentRemotely bool   `form:"storeConsentRemotely"`
-	IsTokenSnowballed    bool   `form:"isTokenSnowballed"`
-	GrantedScopes        string `form:"grantedScopes"`
-	Token                string `form:"Auth"`
-
-	ExpiryInt       int `form:"Expiry"`
-	ExpiresInSecInt int `form:"ExpiresInDurationSec"`
-
-	ReceivedAt time.Time
+type UnixTime struct {
+	time.Time
 }
 
-func (a *Auth) Expiry() *time.Time {
+func (u *UnixTime) UnmarshalText(text []byte) error {
+	timeInt64, err := strconv.ParseInt(string(text), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	timeUnix := time.Unix(timeInt64, 0).UTC()
+
+	*u = UnixTime{timeUnix}
+
+	return nil
+}
+
+type Auth struct {
+	IssueAdvice          string `schema:"issueAdvice"`
+	StoreConsentRemotely bool   `schema:"storeConsentRemotely"`
+	IsTokenSnowballed    bool   `schema:"isTokenSnowballed"`
+	GrantedScopes        string `schema:"grantedScopes"`
+	Token                string `schema:"Auth"`
+
+	ExpiresAt UnixTime `schema:"Expiry"`
+}
+
+func (a *Auth) IsValid() bool {
 	if a == nil {
-		return nil
+		return false
 	}
 
-	if a.ReceivedAt.IsZero() {
-		a.ReceivedAt = time.Now()
+	if a.Token == "" {
+		return false
 	}
 
-	if a.ExpiryInt > 0 {
-		expiryTime := time.Unix(int64(a.ExpiryInt), 0)
-		return &expiryTime
+	if a.ExpiresAt.IsZero() {
+		return false
 	}
 
-	if a.ExpiresInSecInt > 0 {
-		expiryTime := a.ReceivedAt.Add(time.Duration(a.ExpiresInSecInt) * time.Second)
-		return &expiryTime
-	}
+	expiresIn := time.Until(a.ExpiresAt.Time)
+	hasExpired := expiresIn < 0
 
-	pastTime := time.Now().Add(-1 * time.Minute)
-	return &pastTime
+	return !hasExpired
 }

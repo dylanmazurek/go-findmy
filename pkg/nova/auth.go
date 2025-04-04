@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ajg/form"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/gorilla/schema"
 	"github.com/perimeterx/marshmallow"
 	"github.com/rs/zerolog/log"
 )
@@ -77,7 +77,7 @@ func (c *Client) validateAdmToken() error {
 	return nil
 }
 
-func (c *Client) getAdmToken() (*models.Auth, error) {
+func (c *Client) refreshAdmToken() error {
 	var service = fmt.Sprintf("oauth2:https://www.googleapis.com/auth/%s", constants.NOVA_CLIENT_SCOPE)
 
 	formData := url.Values{}
@@ -97,7 +97,7 @@ func (c *Client) getAdmToken() (*models.Auth, error) {
 
 	req, err := http.NewRequest("POST", constants.GOOGLE_AUTH_URL, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Add("Accept-Encoding", "identity")
@@ -118,29 +118,33 @@ func (c *Client) getAdmToken() (*models.Auth, error) {
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	respQuery := strings.ReplaceAll(string(bodyBytes), "\n", "&")
-
-	decoder := form.NewDecoder(strings.NewReader(respQuery))
-
-	var auth models.Auth
-	if err = decoder.Decode(&auth); err != nil {
-		return nil, err
+	urlValues, err := url.ParseQuery(respQuery)
+	if err != nil {
+		return err
 	}
 
-	auth.ReceivedAt = time.Now()
+	var decoder = schema.NewDecoder()
+	decoder.IgnoreUnknownKeys(true)
 
-	log.Info().Msg("fetched adm token")
+	var auth models.Auth
+	err = decoder.Decode(&auth, urlValues)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msg("refreshed adm token")
 
 	c.auth = &auth
 
-	return &auth, nil
+	return nil
 }
