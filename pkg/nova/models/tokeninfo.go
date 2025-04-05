@@ -11,9 +11,8 @@ type TokenInfo struct {
 	Aud   string `json:"aud"`
 	Scope string `json:"scope"`
 
-	AccessType AccessType    `json:"access_type"`
-	Expiry     time.Time     `json:"-"`
-	ExpiresIn  time.Duration `json:"-"`
+	AccessType AccessType `json:"access_type"`
+	Expiry     time.Time  `json:"-"`
 }
 
 func (t *TokenInfo) UnmarshalJSON(data []byte) error {
@@ -37,13 +36,6 @@ func (t *TokenInfo) UnmarshalJSON(data []byte) error {
 	}
 
 	t.Expiry = time.Unix(expiryDateInt, 0)
-
-	expiresInInt, err := strconv.ParseInt(aux.ExpiresIn, 10, 64)
-	if err != nil {
-		return err
-	}
-
-	t.ExpiresIn = time.Duration(expiresInInt) * time.Second
 
 	t.AccessType = AccessType(aux.AccessType)
 

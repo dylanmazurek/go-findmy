@@ -49,7 +49,8 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 
 	err := newClient.validateAdmToken()
 	if err == ErrTokenExpired {
-		log.Info().Msg("adm token expired, refreshing")
+		log.Info().
+			Msg("adm token expired, refreshing")
 
 		err = newClient.refreshAdmToken()
 		if err != nil {
@@ -99,7 +100,8 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 
 	tokenValid := c.auth.IsValid()
 	if !tokenValid {
-		log.Info().Msg("adm token invalid, refreshing")
+		log.Info().
+			Msg("adm token invalid, refreshing")
 
 		err = c.refreshAdmToken()
 		if err != nil {
@@ -117,7 +119,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request, resp interface{}) er
 	if err != nil || httpResponse == nil || httpResponse.StatusCode >= 400 {
 		if httpResponse != nil {
 			log.Error().Err(err).
-				Str("status", httpResponse.Status).
+				Str(constants.LOG_HTTP_STATUS, httpResponse.Status).
 				Msg("failed to execute request")
 		}
 
@@ -136,13 +138,13 @@ func (c *Client) Do(ctx context.Context, req *http.Request, resp interface{}) er
 
 	protoMessage, ok := resp.(proto.Message)
 	if !ok {
-		return fmt.Errorf("response is not a proto.Message")
+		return ErrResponseNotProtoMessage
 	}
 
 	respBody := proto.Unmarshal(bodyBytes, protoMessage)
-	if respBody != nil {
-		return respBody
+	if respBody == nil {
+		return nil
 	}
 
-	return nil
+	return respBody
 }

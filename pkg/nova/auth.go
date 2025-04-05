@@ -17,12 +17,14 @@ import (
 )
 
 type addAuthHeaderTransport struct {
-	T    http.RoundTripper
-	Auth *models.Auth
+	T          http.RoundTripper
+	AuthGetter func() *models.Auth
 }
 
 func (adt *addAuthHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	bearerAuth := fmt.Sprintf("Bearer %s", adt.Auth.Token)
+	auth := adt.AuthGetter()
+
+	bearerAuth := fmt.Sprintf("Bearer %s", auth.Token)
 	req.Header.Add("Authorization", bearerAuth)
 	req.Header.Add("Accept-Language", constants.NOVA_API_LANGUAGE)
 	req.Header.Add("User-Agent", constants.NOVA_USER_AGENT)
@@ -34,8 +36,10 @@ func (adt *addAuthHeaderTransport) RoundTrip(req *http.Request) (*http.Response,
 func (c *Client) createAuthTransport() (*http.Client, error) {
 	authClient := &http.Client{
 		Transport: &addAuthHeaderTransport{
-			T:    http.DefaultTransport,
-			Auth: c.auth,
+			T: http.DefaultTransport,
+			AuthGetter: func() *models.Auth {
+				return c.auth
+			},
 		},
 	}
 
@@ -47,8 +51,17 @@ func (c *Client) validateAdmToken() error {
 		return ErrTokenExpired
 	}
 
-	urlPath := fmt.Sprintf("%s?access_token=%s", constants.GOOGLE_TOKEN_INFO_URL, c.auth.Token)
-	req, err := http.NewRequest("GET", urlPath, nil)
+	tokenInfoUrl, err := url.Parse(constants.GOOGLE_TOKEN_INFO_URL)
+	if err != nil {
+		return err
+	}
+
+	tokenInfoUrlParams := url.Values{}
+	tokenInfoUrlParams.Set("access_token", c.auth.Token)
+	tokenInfoUrl.RawQuery = tokenInfoUrlParams.Encode()
+
+	urlPath := tokenInfoUrl.String()
+	req, err := http.NewRequest(http.MethodGet, urlPath, nil)
 	if err != nil {
 		return err
 	}
@@ -70,7 +83,7 @@ func (c *Client) validateAdmToken() error {
 		return err
 	}
 
-	if tokenInfo.ExpiresIn < 60 {
+	if !tokenInfo.IsValid() {
 		return ErrTokenExpired
 	}
 
@@ -78,14 +91,14 @@ func (c *Client) validateAdmToken() error {
 }
 
 func (c *Client) refreshAdmToken() error {
-	var service = fmt.Sprintf("oauth2:https://www.googleapis.com/auth/%s", constants.NOVA_CLIENT_SCOPE)
+	var scope = fmt.Sprintf("oauth2:https://www.googleapis.com/auth/%s", constants.NOVA_CLIENT_SCOPE)
 
 	formData := url.Values{}
 	formData.Set("accountType", "HOSTED_OR_GOOGLE")
 	formData.Set("Email", c.session.GetEmail())
 	formData.Set("has_permission", "1")
 	formData.Set("EncryptedPasswd", c.session.AdmSession.AasToken)
-	formData.Set("service", service)
+	formData.Set("service", scope)
 	formData.Set("source", constants.NOVA_CLIENT_SOURCE)
 	formData.Set("androidId", fmt.Sprintf("%d", c.session.AndroidId))
 	formData.Set("app", constants.APP_ADM)
@@ -95,7 +108,7 @@ func (c *Client) refreshAdmToken() error {
 	formData.Set("lang", "en")
 	formData.Set("sdk_version", "17")
 
-	req, err := http.NewRequest("POST", constants.GOOGLE_AUTH_URL, strings.NewReader(formData.Encode()))
+	req, err := http.NewRequest(http.MethodPost, constants.GOOGLE_AUTH_URL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return err
 	}

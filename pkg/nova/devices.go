@@ -53,7 +53,7 @@ func (c *Client) RefreshAllDevices(ctx context.Context) error {
 			continue
 		}
 
-		log.Trace().Str("canonicId", *firstCanonicId).Msg("executing action")
+		log.Trace().Str(constants.LOG_CANONIC_ID, *firstCanonicId).Msg("executing action")
 
 		err = c.ExecuteAction(ctx, *firstCanonicId)
 		if err != nil {
