@@ -1,11 +1,11 @@
 {
     "protoc": {
-        "path": "/usr/bin/protoc",
+        "path": "protoc",
         "compile_on_save": true,
         "options": [
-            "--proto_path=${workspaceRoot}/pkg/nova/models/protos/",
+            "--proto_path=${workspaceRoot}/pkg/nova/models/protos",
             "--go_out=${workspaceRoot}/pkg/nova/models/protos/bindings",
             "--go_opt=module=github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings",
         ]
-    }
+    },
 }

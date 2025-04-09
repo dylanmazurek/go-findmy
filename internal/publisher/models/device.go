@@ -9,7 +9,7 @@ type Device struct {
 	UniqueId    string     `json:"unique_id"`
 	Name        string     `json:"name"`
 	DeviceClass string     `json:"device_class"`
-	Device      DeviceInfo `json:"device"`
+	DeviceInfo  DeviceInfo `json:"device"`
 }
 
 func (d Device) MarshalJSON() ([]byte, error) {
@@ -30,7 +30,7 @@ func NewDevice(name string, uniqueId string, model string, manufacturer string) 
 		Name:        "Location",
 		UniqueId:    uniqueId,
 		DeviceClass: "device_tracker",
-		Device: DeviceInfo{
+		DeviceInfo: DeviceInfo{
 			Identifiers:  []string{uniqueId},
 			Name:         name,
 			Model:        model,

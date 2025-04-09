@@ -16,7 +16,7 @@ type Client struct {
 }
 
 func NewPublisher(ctx context.Context, mqttUrl string, username string, password string) (*Client, error) {
-	clientId := "google-findmy-publisher"
+	clientId := "google-findmy"
 
 	u, err := url.Parse(mqttUrl)
 	if err != nil {
@@ -61,6 +61,7 @@ func (c *Client) AddDevice(ctx context.Context, device models.Device) (*paho.Pub
 	payload := &paho.Publish{
 		QoS:     1,
 		Topic:   device.GetConfigTopic(),
+		Retain:  true,
 		Payload: deviceJson,
 	}
 
