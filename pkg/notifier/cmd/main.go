@@ -9,7 +9,6 @@ import (
 	"github.com/dylanmazurek/go-findmy/internal/logger"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,7 +18,7 @@ func main() {
 	ctx = logger.InitLogger(ctx)
 
 	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := session.New(ctx, &sessionFile)
+	session, err := notifier.NewSession(ctx, &sessionFile)
 	if err != nil {
 		panic(err)
 	}
@@ -37,10 +36,10 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Info().Msg("waiting for signals")
+	log.Info().Msg("notifier running")
 
 	<-sigs
 
-	log.Info().Msg("received signal, stopping listener")
+	log.Info().Msg("received terminate signal, stopping listener")
 
 }

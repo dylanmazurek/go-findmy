@@ -1,11 +1,11 @@
-package nova
+package spot
 
 import (
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 )
 
 type Options struct {
-	notifierSession *notifier.Session
+	notifierSession notifier.Session
 }
 
 func DefaultOptions() Options {
@@ -16,7 +16,7 @@ func DefaultOptions() Options {
 
 type Option func(*Options)
 
-func WithNotifierSession(s *notifier.Session) Option {
+func WithSession(s notifier.Session) Option {
 	return func(o *Options) {
 		o.notifierSession = s
 	}

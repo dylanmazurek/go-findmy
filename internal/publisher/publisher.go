@@ -16,8 +16,6 @@ type Client struct {
 }
 
 func NewPublisher(ctx context.Context, mqttUrl string, username string, password string) (*Client, error) {
-	clientId := "google-findmy"
-
 	u, err := url.Parse(mqttUrl)
 	if err != nil {
 		return nil, err
@@ -29,7 +27,7 @@ func NewPublisher(ctx context.Context, mqttUrl string, username string, password
 		CleanStartOnInitialConnection: false,
 		SessionExpiryInterval:         60,
 		ClientConfig: paho.ClientConfig{
-			ClientID: clientId,
+			ClientID: fmt.Sprintf("findmy2mqtt-%s", username),
 		},
 	}
 
@@ -41,7 +39,8 @@ func NewPublisher(ctx context.Context, mqttUrl string, username string, password
 		return nil, err
 	}
 
-	if err = c.AwaitConnection(ctx); err != nil {
+	err = c.AwaitConnection(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -50,6 +49,21 @@ func NewPublisher(ctx context.Context, mqttUrl string, username string, password
 	}
 
 	return &newClient, nil
+}
+
+func (c *Client) InitalizeDevices(ctx context.Context, devices []models.Device) ([]*paho.PublishResponse, error) {
+	var responses []*paho.PublishResponse
+
+	for _, device := range devices {
+		resp, err := c.AddDevice(ctx, device)
+		if err != nil {
+			return nil, err
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
 }
 
 func (c *Client) AddDevice(ctx context.Context, device models.Device) (*paho.PublishResponse, error) {
@@ -82,7 +96,7 @@ func (c *Client) UpdateTracker(ctx context.Context, report models.Report) (*paho
 	topic := fmt.Sprintf("findmy2mqtt/%s/attributes", report.UniqueId)
 
 	payload := &paho.Publish{
-		QoS:     1,
+		QoS:     0,
 		Topic:   topic,
 		Payload: deviceJson,
 	}

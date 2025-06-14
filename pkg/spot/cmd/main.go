@@ -100,7 +100,7 @@ func listDevices(ctx context.Context, novaClient *nova.Client) error {
 		newRow.Column(device.GetUserDefinedDeviceName())
 	}
 
-	fmt.Println(tab.String())
+	fmt.Print(tab.String())
 
 	return nil
 }
@@ -108,7 +108,9 @@ func listDevices(ctx context.Context, novaClient *nova.Client) error {
 func executeAction(ctx context.Context, novaClient *nova.Client, canonicId string) error {
 	log := log.Ctx(ctx)
 
-	log.Trace().Str("canonicId", canonicId).Msg("executing action")
+	log.Trace().
+		Str("canonic_id", canonicId).
+		Msg("executing action")
 
 	err := novaClient.ExecuteAction(ctx, canonicId)
 

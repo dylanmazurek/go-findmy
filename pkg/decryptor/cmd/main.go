@@ -8,9 +8,9 @@ import (
 
 	"github.com/dylanmazurek/go-findmy/internal/logger"
 	"github.com/dylanmazurek/go-findmy/pkg/decryptor"
+	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,7 +20,7 @@ func main() {
 	ctx = logger.InitLogger(ctx)
 
 	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := session.New(ctx, &sessionFile)
+	session, err := notifier.NewSession(ctx, &sessionFile)
 	if err != nil {
 		panic(err)
 	}

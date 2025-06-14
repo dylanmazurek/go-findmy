@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dylanmazurek/go-findmy/internal/findmy/constants"
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
@@ -14,26 +15,29 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type FindMy struct {
+type Service struct {
 	novaClient      *nova.Client
-	notifyClient    *notifier.Client
+	notifierClient  *notifier.Client
 	publisherClient *publisher.Client
 
 	internalScheduler gocron.Scheduler
 }
 
-func NewFindMy() (*FindMy, error) {
-	ctx := context.Background()
+func NewFindMy(ctx context.Context) (*Service, error) {
+	log := log.Ctx(ctx).With().Str("service", constants.SERVICE_NAME).Logger()
 
-	var newFindMy FindMy
-	err := newFindMy.initClients(ctx)
+	log.Debug().Msg("creating new find-my service")
+
+	var newFindMyService Service
+
+	err := newFindMyService.initClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	timezoneEnv, hasTimezoneEnv := os.LookupEnv("TIMEZONE")
 	if !hasTimezoneEnv {
-		timezoneEnv = "Australia/Melbourne"
+		timezoneEnv = constants.DEFAULT_TIMEZONE
 	}
 
 	timezone, err := time.LoadLocation(timezoneEnv)
@@ -51,26 +55,24 @@ func NewFindMy() (*FindMy, error) {
 		return nil, err
 	}
 
-	newFindMy.internalScheduler = scheduler
+	newFindMyService.internalScheduler = scheduler
 
-	return &newFindMy, nil
+	return &newFindMyService, nil
 }
 
-func (f *FindMy) AddJobs(ctx context.Context) error {
+func (s *Service) AddJobs(ctx context.Context) error {
 	log := log.Ctx(ctx)
 
 	cronSchedule, hasCronSchedule := os.LookupEnv("CRON_SCHEDULE")
 	if !hasCronSchedule {
-		cronSchedule = "*/20 * * * *"
+		cronSchedule = constants.DEFAULT_CRON_SCHEDULE
 	}
 
 	job := gocron.CronJob(cronSchedule, false)
 	task := gocron.NewTask(func(ctx context.Context) {
-		log.Info().Msg("refreshing devices")
-		novaClient := f.novaClient
-		err := novaClient.RefreshAllDevices(ctx)
+		err := s.novaClient.RefreshDevices(ctx)
 		if err != nil {
-			log.Fatal().Err(err).Msg("failed to get devices")
+			log.Error().Err(err).Msg("failed to get devices")
 		}
 	}, ctx)
 
@@ -78,39 +80,51 @@ func (f *FindMy) AddJobs(ctx context.Context) error {
 		gocron.WithStartAt(gocron.WithStartImmediately()),
 	}
 
-	newJob, err := f.internalScheduler.NewJob(job, task, jobOpts...)
+	newJob, err := s.internalScheduler.NewJob(job, task, jobOpts...)
 	if err != nil {
 		return err
 	}
 
-	log.Info().Str("job_id", string(newJob.ID().String())).Msg("job added")
+	log.Info().
+		Str("job_id", newJob.ID().String()).
+		Msg("job added")
 
 	return nil
 }
 
-func (f *FindMy) Start(ctx context.Context) error {
-	log := log.Ctx(ctx)
-	log.Info().Msg("starting to listen for notifications")
-	err := f.notifyClient.StartListening(ctx)
+func (s *Service) Start(ctx context.Context) error {
+	log := log.Ctx(ctx).With().Str("service", constants.SERVICE_NAME).Logger()
+
+	devices, err := s.GetDevices(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get devices")
+	}
+
+	s.publisherClient.InitalizeDevices(ctx, devices)
+
+	log.Trace().Msg("starting find-my service")
+
+	err = s.notifierClient.StartListening(ctx)
 	if err != nil {
 		return err
 	}
 
-	f.AddJobs(ctx)
+	s.AddJobs(ctx)
 
-	log.Info().Msg("starting scheduler")
-	f.internalScheduler.Start()
+	log.Debug().Msg("starting scheduler")
 
-	log.Info().Msg("listening for messages")
+	s.internalScheduler.Start()
+
+	log.Debug().Msg("scheduler started")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Info().Msg("waiting for signals")
+	log.Info().Msg("find-my service running")
 
 	<-sigs
 
-	log.Info().Msg("received signal, stopping listener")
+	log.Info().Msg("received terminate signal, stopping listener")
 
 	return err
 }

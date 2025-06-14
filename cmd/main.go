@@ -15,7 +15,7 @@ func main() {
 	ctx := context.Background()
 	ctx = logger.InitLogger(ctx)
 
-	findmyClient, err := findmy.NewFindMy()
+	findmyClient, err := findmy.NewFindMy(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -28,9 +28,9 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Info().Msg("waiting for signals")
+	log.Info().Msg("go-findmy running")
 
 	<-sigs
 
-	log.Info().Msg("received signal, stopping listener")
+	log.Info().Msg("received terminate signal, stopping listener")
 }

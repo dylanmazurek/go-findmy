@@ -9,10 +9,9 @@ import (
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
 	"github.com/dylanmazurek/go-findmy/internal/publisher/models"
 	"github.com/dylanmazurek/go-findmy/pkg/decryptor"
+	"github.com/dylanmazurek/go-findmy/pkg/notifier/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
@@ -25,24 +24,26 @@ type Client struct {
 	decryptor      *decryptor.Decryptor
 	publisher      *publisher.Client
 
-	session     *session.Session
+	session     *Session
 	publishMqtt bool
 }
 
-func NewClient(ctx context.Context, s *session.Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
-	log := log.Ctx(ctx)
+func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
+	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
 
-	log.Trace().Msg("creating new notifier")
+	log.Trace().Msg("creating")
 
 	fcmClient, err := s.NewFCMClient(ctx, true)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create FCM client")
+		log.Error().Err(err).Msg("failed to create fcm client")
+
 		return nil, err
 	}
 
 	newDecryptor, err := decryptor.NewDecryptor(s.OwnerKey)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create decryptor")
+
 		return nil, err
 	}
 
@@ -53,31 +54,31 @@ func NewClient(ctx context.Context, s *session.Session, p *publisher.Client, sl 
 
 	semanticLocations = sl
 
-	newNotifier := Client{
+	newNotifier := &Client{
 		internalClient: fcmClient,
 		decryptor:      newDecryptor,
 		publisher:      p,
 
 		session:     s,
-		publishMqtt: publishMqttEnv == "true",
+		publishMqtt: (publishMqttEnv == "true"),
 	}
 
-	return &newNotifier, nil
+	return newNotifier, nil
 }
 
 func (n *Client) StartListening(ctx context.Context) error {
+	log := log.Ctx(ctx)
+
 	n.internalClient.OnDataMessage = func(message []byte) { n.onDataMessage(ctx, message) }
 	n.internalClient.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) { n.OnRawMessage(ctx, message) }
 
-	go func(ctx context.Context) {
-		log := log.Ctx(ctx)
-
+	go func() {
 		log.Info().Msg("starting listener")
 		err := n.internalClient.StartListening()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to start listening")
 		}
-	}(ctx)
+	}()
 
 	return nil
 }
@@ -90,6 +91,7 @@ func (n *Client) onDataMessage(ctx context.Context, message []byte) {
 
 func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMessageStanza) {
 	log := log.Ctx(ctx)
+
 	log.Trace().Msg("received raw message")
 
 	appData := message.GetAppData()
@@ -102,7 +104,8 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 	})
 
 	if fcmPayloadIdx == -1 {
-		log.Error().Msg("failed to find FCM payload")
+		log.Error().Msg("failed to find fcm payload")
+
 		return
 	}
 
@@ -110,7 +113,7 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 
 	fcmPayload, err := base64.StdEncoding.DecodeString(fcmPayloadHex)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to decode FCM payload")
+		log.Error().Err(err).Msg("failed to decode fcm payload")
 		return
 	}
 
@@ -128,7 +131,10 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 	}
 
 	if len(locations) == 0 {
-		log.Error().Msg("no locations found")
+		log.Warn().
+			Str(constants.LOG_USER_DEFINED_DEVICE_NAME, deviceUpdate.DeviceMetadata.UserDefinedDeviceName).
+			Msg("no recent locations found for device")
+
 		return
 	}
 
@@ -180,6 +186,7 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 
 func (n *Client) GetFcmToken() string {
 	fcmToken := n.internalClient.FcmToken
+
 	return fcmToken
 }
 

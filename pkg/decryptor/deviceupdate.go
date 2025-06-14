@@ -3,7 +3,6 @@ package decryptor
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
@@ -43,7 +42,8 @@ func (d *Decryptor) DecryptDeviceUpdate(ctx context.Context, deviceUpdate *bindi
 	}
 
 	if len(networkLocations) == 0 {
-		fmt.Println("no locations found")
+		log.Trace().Msg("no network locations found in device update")
+
 		return nil, err
 	}
 

@@ -10,15 +10,15 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/rs/zerolog/log"
 )
 
-func (f *FindMy) initClients(ctx context.Context) error {
+func (s *Service) initClients(ctx context.Context) error {
 	log := log.Ctx(ctx)
 
 	log.Trace().Msg("initializing clients")
+
 	vaultAddr := os.Getenv("VAULT_ADDR")
 	vaultAppRoleId := os.Getenv("VAULT_APPROLE_ID")
 	vaultSecretId := os.Getenv("VAULT_SECRET_ID")
@@ -63,7 +63,7 @@ func (f *FindMy) initClients(ctx context.Context) error {
 		return err
 	}
 
-	var session *session.Session
+	var session *notifier.Session
 	err = json.Unmarshal([]byte(sessionBytes), &session)
 	if err != nil {
 		return err
@@ -85,27 +85,27 @@ func (f *FindMy) initClients(ctx context.Context) error {
 		return err
 	}
 
-	notifyClient, err := notifier.NewClient(ctx, session, publisher, semanticLocations)
+	notifierClient, err := notifier.NewClient(ctx, session, publisher, semanticLocations)
 	if err != nil {
 		return err
 	}
 
-	*session.FcmSession.RegistrationToken = notifyClient.GetFcmToken()
+	*session.FcmSession.RegistrationToken = notifierClient.GetFcmToken()
 
 	clientOps := []nova.Option{
-		nova.WithSession(*session),
+		nova.WithNotifierSession(session),
 	}
 
-	novaClient, err := nova.New(ctx, clientOps...)
+	novaClient, err := nova.NewClient(ctx, clientOps...)
 	if err != nil {
 		return err
 	}
 
 	log.Trace().Msg("clients initialized")
 
-	f.novaClient = novaClient
-	f.notifyClient = notifyClient
-	f.publisherClient = publisher
+	s.novaClient = novaClient
+	s.notifierClient = notifierClient
+	s.publisherClient = publisher
 
 	return nil
 }

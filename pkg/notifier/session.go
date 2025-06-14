@@ -1,15 +1,17 @@
-package session
+package notifier
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session/models"
+	"github.com/dylanmazurek/go-findmy/pkg/notifier/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/notifier/models"
+	shared "github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/perimeterx/marshmallow"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,18 +22,23 @@ type Session struct {
 	OwnerKey      *string            `json:"ownerKey"`
 	FcmSession    *models.FcmSession `json:"fcmSession"`
 	AdmSession    *models.AdmSession `json:"admSession"`
+
+	fcmClient         *fcmreceiver.FCMClient
+	reconnectConfig   *ReconnectionConfig
+	reconnectMutex    sync.Mutex
+	isReconnecting    bool
+	stopReconnect     chan bool
+	connectionMonitor chan error
 }
 
 func (s *Session) GetEmail() string {
-	email := fmt.Sprintf("%s@gmail.com", s.Username)
+	email := fmt.Sprintf("%s@%s", s.Username, constants.GMAIL_DOMAIN)
+
 	return email
 }
 
-// New creates a new session
-// ctx is the context, f is the file to save the session to
-func New(ctx context.Context, f *string) (*Session, error) {
-	loger := zerolog.Ctx(ctx).With().Str("component", "session").Logger()
-	log.Logger = loger
+func NewSession(ctx context.Context, f *string) (*Session, error) {
+	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
 
 	var session Session
 	if f != nil {
@@ -54,7 +61,7 @@ func New(ctx context.Context, f *string) (*Session, error) {
 	if f == nil {
 		log.Info().Msg("session file not set, creating new session")
 
-		err := session.SaveSession(ctx, constants.DEFAULT_SESSION_FILE)
+		err := session.SaveSession(ctx, shared.DEFAULT_SESSION_FILE)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +70,6 @@ func New(ctx context.Context, f *string) (*Session, error) {
 	return &session, nil
 }
 
-// loadSession loads a session string
 func (s *Session) LoadSession(sessionStr string) error {
 	var session Session
 	_, err := marshmallow.Unmarshal([]byte(sessionStr), &session)
@@ -71,12 +77,16 @@ func (s *Session) LoadSession(sessionStr string) error {
 		return err
 	}
 
-	*s = session
+	s.Username = session.Username
+	s.AndroidId = session.AndroidId
+	s.SecurityToken = session.SecurityToken
+	s.OwnerKey = session.OwnerKey
+	s.FcmSession = session.FcmSession
+	s.AdmSession = session.AdmSession
 
 	return nil
 }
 
-// saveSession encodes a session and saves it to a file
 func (s *Session) SaveSession(ctx context.Context, f string) error {
 	log := log.Ctx(ctx)
 

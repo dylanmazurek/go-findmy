@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/dylanmazurek/go-findmy/pkg/notifier"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/session"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
 )
@@ -21,38 +20,39 @@ type Client struct {
 	internalClient *http.Client
 
 	clientUuid string
-	session    *session.Session
 	auth       *models.Auth
 
-	loggerCtx context.Context
+	notifierSession *notifier.Session
 }
 
-func New(ctx context.Context, opts ...Option) (*Client, error) {
+func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
+	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
+
 	clientOptions := DefaultOptions()
 	for _, opt := range opts {
 		opt(&clientOptions)
 	}
 
-	loger := zerolog.Ctx(ctx).With().Str("component", "nova-client").Logger()
-	log.Logger = loger
+	newClientUuid := uuid.New()
 
-	clientUuid := uuid.New()
+	log = log.With().
+		Str(constants.LOG_CLIENT_UUID, newClientUuid.String()).
+		Logger()
 
 	newClient := &Client{
 		internalClient: http.DefaultClient,
 
-		clientUuid: clientUuid.String(),
-		session:    &clientOptions.session,
+		clientUuid: newClientUuid.String(),
 
-		loggerCtx: ctx,
+		notifierSession: clientOptions.notifierSession,
 	}
 
-	err := newClient.validateAdmToken()
+	err := newClient.validateAdmToken(ctx)
 	if err == ErrTokenExpired {
-		log.Info().
+		log.Debug().
 			Msg("adm token expired, refreshing")
 
-		err = newClient.refreshAdmToken()
+		err = newClient.refreshAdmToken(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -72,8 +72,10 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	return newClient, nil
 }
 
-func (c *Client) NewRequest(method string, path string, message proto.Message, params *url.Values) (*http.Request, error) {
-	urlString := fmt.Sprintf("%s/%s", constants.NOVA_BASE_URL, path)
+func (c *Client) NewRequest(ctx context.Context, method string, path string, message proto.Message, params *url.Values) (*http.Request, error) {
+	log := log.Ctx(ctx)
+
+	urlString := fmt.Sprintf("%s/%s", constants.API_BASE_URL, path)
 	requestUrl, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
@@ -93,6 +95,21 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 		body = bytes.NewReader(reqBody)
 	}
 
+	if body == nil {
+		body = bytes.NewBuffer([]byte{})
+	}
+
+	requestLog := log.Trace().
+		Str(constants.LOG_HTTP_METHOD, method).
+		Str(constants.LOG_HTTP_URL, requestUrl.String())
+
+	if message != nil {
+		requestLog = requestLog.
+			Str(constants.LOG_MESSAGE_TYPE, fmt.Sprintf("%T", message))
+	}
+
+	requestLog.Msg("creating new request")
+
 	req, err := http.NewRequest(method, requestUrl.String(), body)
 	if err != nil {
 		return nil, err
@@ -101,12 +118,13 @@ func (c *Client) NewRequest(method string, path string, message proto.Message, p
 	tokenValid := c.auth.IsValid()
 	if !tokenValid {
 		log.Info().
-			Msg("adm token invalid, refreshing")
+			Msg("android device manager token invalid")
 
-		err = c.refreshAdmToken()
+		err = c.refreshAdmToken(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	return req, nil

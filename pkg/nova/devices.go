@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/dylanmazurek/go-findmy/internal"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -14,7 +14,7 @@ import (
 func (c *Client) GetDevices(ctx context.Context) (*bindings.DevicesList, error) {
 	log := log.Ctx(ctx)
 
-	log.Info().Msg("getting devices")
+	log.Debug().Msg("fetching devices")
 
 	requestUuid := uuid.New()
 
@@ -25,7 +25,7 @@ func (c *Client) GetDevices(ctx context.Context) (*bindings.DevicesList, error) 
 		},
 	}
 
-	req, err := c.NewRequest(http.MethodPost, constants.PATH_LIST_DEVICES, reqMessage, nil)
+	req, err := c.NewRequest(ctx, http.MethodPost, constants.PATH_LIST_DEVICES, reqMessage, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +39,10 @@ func (c *Client) GetDevices(ctx context.Context) (*bindings.DevicesList, error) 
 	return &deviceList, nil
 }
 
-func (c *Client) RefreshAllDevices(ctx context.Context) error {
+func (c *Client) RefreshDevices(ctx context.Context) error {
 	log := log.Ctx(ctx)
+
+	log.Debug().Msg("refreshing devices")
 
 	devices, err := c.GetDevices(ctx)
 	if err != nil {
@@ -53,7 +55,9 @@ func (c *Client) RefreshAllDevices(ctx context.Context) error {
 			continue
 		}
 
-		log.Trace().Str(constants.LOG_CANONIC_ID, *firstCanonicId).Msg("executing action")
+		log.Trace().
+			Str(constants.LOG_CANONIC_ID, *firstCanonicId).
+			Msg("executing action")
 
 		err = c.ExecuteAction(ctx, *firstCanonicId)
 		if err != nil {
