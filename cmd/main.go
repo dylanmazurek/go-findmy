@@ -15,12 +15,12 @@ func main() {
 	ctx := context.Background()
 	ctx = logger.InitLogger(ctx)
 
-	findmyClient, err := findmy.NewFindMy(ctx)
+	findmyService, err := findmy.NewService(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	err = findmyClient.Start(ctx)
+	err = findmyService.Start(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -28,7 +28,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Info().Msg("go-findmy running")
+	log.Info().Msg("go-findmy service running")
 
 	<-sigs
 

@@ -1,9 +1,2 @@
 .env
 session.json
-
-/python-reference
-
-*.txt
-session_dev.json
-semantic_locations.json
-.git-old/*
