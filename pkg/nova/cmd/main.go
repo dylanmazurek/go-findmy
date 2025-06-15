@@ -59,7 +59,6 @@ func main() {
 	}
 
 	listDevices(ctx, novaClient)
-	executeAction(ctx, novaClient, "670be2bb-0000-2c56-b3c9-089e0832f140")
 }
 
 func listDevices(ctx context.Context, novaClient *nova.Client) error {
@@ -103,14 +102,4 @@ func listDevices(ctx context.Context, novaClient *nova.Client) error {
 	fmt.Println(tab.String())
 
 	return nil
-}
-
-func executeAction(ctx context.Context, novaClient *nova.Client, canonicId string) error {
-	log := log.Ctx(ctx)
-
-	log.Trace().Str("canonicId", canonicId).Msg("executing action")
-
-	err := novaClient.ExecuteAction(ctx, canonicId)
-
-	return err
 }

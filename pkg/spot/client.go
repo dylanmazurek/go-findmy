@@ -8,8 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	novaConstants "github.com/dylanmazurek/go-findmy/pkg/nova/constants"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/spot/constants"
 
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
@@ -41,7 +40,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 }
 
 func (c *Client) NewRequest(method string, path string, message proto.Message, params *url.Values) (*http.Request, error) {
-	urlString := fmt.Sprintf("%s/%s", novaConstants.API_BASE_URL, path)
+	urlString := fmt.Sprintf("%s/%s", constants.API_BASE_URL, path)
 	requestUrl, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
