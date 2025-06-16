@@ -62,6 +62,10 @@ func (s *Session) startFCMConnection(ctx context.Context, isReconnect bool) erro
 
 	s.fcmClient = client
 
+	if s.onConnectionReady != nil {
+		s.onConnectionReady(client)
+	}
+
 	go func() {
 		err := client.StartListening()
 		if err != nil {

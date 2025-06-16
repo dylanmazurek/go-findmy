@@ -163,7 +163,9 @@ func (c *Client) refreshAdmToken(ctx context.Context) error {
 		return err
 	}
 
-	log.Info().Msg("refreshed adm token")
+	log.Info().
+		Str("expires_at", auth.ExpiresAt.Time.String()).
+		Msg("refreshed adm token")
 
 	c.auth = &auth
 

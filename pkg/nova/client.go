@@ -117,7 +117,7 @@ func (c *Client) NewRequest(ctx context.Context, method string, path string, mes
 
 	tokenValid := c.auth.IsValid()
 	if !tokenValid {
-		log.Info().
+		log.Debug().
 			Msg("android device manager token invalid")
 
 		err = c.refreshAdmToken(ctx)

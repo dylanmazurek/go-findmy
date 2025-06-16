@@ -20,9 +20,8 @@ import (
 var semanticLocations []shared.SemanticLocation
 
 type Client struct {
-	internalClient *fcmreceiver.FCMClient
-	decryptor      *decryptor.Decryptor
-	publisher      *publisher.Client
+	decryptor *decryptor.Decryptor
+	publisher *publisher.Client
 
 	session     *Session
 	publishMqtt bool
@@ -32,13 +31,6 @@ func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared
 	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
 
 	log.Trace().Msg("creating")
-
-	fcmClient, err := s.NewFCMClient(ctx, true)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to create fcm client")
-
-		return nil, err
-	}
 
 	newDecryptor, err := decryptor.NewDecryptor(s.OwnerKey)
 	if err != nil {
@@ -55,13 +47,16 @@ func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared
 	semanticLocations = sl
 
 	newNotifier := &Client{
-		internalClient: fcmClient,
-		decryptor:      newDecryptor,
-		publisher:      p,
+		decryptor: newDecryptor,
+		publisher: p,
 
 		session:     s,
 		publishMqtt: (publishMqttEnv == "true"),
 	}
+
+	s.SetConnectionReadyCallback(func(client *fcmreceiver.FCMClient) {
+		newNotifier.setupMessageHandlers(context.Background(), client)
+	})
 
 	return newNotifier, nil
 }
@@ -69,18 +64,19 @@ func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared
 func (n *Client) StartListening(ctx context.Context) error {
 	log := log.Ctx(ctx)
 
-	n.internalClient.OnDataMessage = func(message []byte) { n.onDataMessage(ctx, message) }
-	n.internalClient.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) { n.OnRawMessage(ctx, message) }
+	log.Info().Msg("starting fcm connection with auto-reconnection")
 
-	go func() {
-		log.Info().Msg("starting listener")
-		err := n.internalClient.StartListening()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to start listening")
-		}
-	}()
+	return n.session.StartFCMWithReconnection(ctx)
+}
 
-	return nil
+func (n *Client) setupMessageHandlers(ctx context.Context, client *fcmreceiver.FCMClient) {
+	client.OnDataMessage = func(message []byte) {
+		n.onDataMessage(ctx, message)
+	}
+
+	client.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) {
+		n.OnRawMessage(ctx, message)
+	}
 }
 
 func (n *Client) onDataMessage(ctx context.Context, message []byte) {
@@ -185,11 +181,12 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 }
 
 func (n *Client) GetFcmToken() string {
-	fcmToken := n.internalClient.FcmToken
-
-	return fcmToken
+	if n.session.fcmClient != nil {
+		return n.session.fcmClient.FcmToken
+	}
+	return ""
 }
 
 func (n *Client) StopListening() {
-	n.internalClient.Close()
+	n.session.StopFCMReconnection()
 }

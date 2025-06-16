@@ -29,12 +29,17 @@ type Session struct {
 	isReconnecting    bool
 	stopReconnect     chan bool
 	connectionMonitor chan error
+	onConnectionReady func(*fcmreceiver.FCMClient)
 }
 
 func (s *Session) GetEmail() string {
 	email := fmt.Sprintf("%s@%s", s.Username, constants.GMAIL_DOMAIN)
 
 	return email
+}
+
+func (s *Session) SetConnectionReadyCallback(callback func(*fcmreceiver.FCMClient)) {
+	s.onConnectionReady = callback
 }
 
 func NewSession(ctx context.Context, f *string) (*Session, error) {
