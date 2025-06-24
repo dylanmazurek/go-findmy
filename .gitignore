@@ -1,3 +1,2 @@
 .env
-session.json
-python/
+.storage/
