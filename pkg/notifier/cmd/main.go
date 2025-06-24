@@ -18,12 +18,20 @@ func main() {
 	ctx = logger.InitLogger(ctx)
 
 	sessionFile := constants.DEFAULT_SESSION_FILE
-	session, err := notifier.NewSession(ctx, &sessionFile)
+	sessionFileBytes, err := os.ReadFile(sessionFile)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read session file")
+		panic(err)
+	}
+
+	sessionFileStr := string(sessionFileBytes)
+
+	session, err := notifier.NewSession(ctx, &sessionFileStr)
 	if err != nil {
 		panic(err)
 	}
 
-	n, err := notifier.NewClient(ctx, session, nil, nil)
+	n, err := notifier.NewClient(ctx, *session, nil, nil)
 	if err != nil {
 		panic(err)
 	}

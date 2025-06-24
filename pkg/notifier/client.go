@@ -12,6 +12,8 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/notifier/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
+
+	sharedconstants "github.com/dylanmazurek/go-findmy/pkg/shared/constants"
 	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
@@ -20,6 +22,8 @@ import (
 var semanticLocations []shared.SemanticLocation
 
 type Client struct {
+	internalClient *fcmreceiver.FCMClient
+
 	decryptor *decryptor.Decryptor
 	publisher *publisher.Client
 
@@ -27,7 +31,7 @@ type Client struct {
 	publishMqtt bool
 }
 
-func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
+func NewClient(ctx context.Context, s Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
 	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
 
 	log.Trace().Msg("creating")
@@ -46,37 +50,94 @@ func NewClient(ctx context.Context, s *Session, p *publisher.Client, sl []shared
 
 	semanticLocations = sl
 
+	log.Trace().Msg("initializing internal client")
+	newInternalClient, err := newInternalClient(ctx, s, true)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create internal client")
+		return nil, err
+	}
+
 	newNotifier := &Client{
 		decryptor: newDecryptor,
 		publisher: p,
 
-		session:     s,
-		publishMqtt: (publishMqttEnv == "true"),
+		session:        &s,
+		internalClient: newInternalClient,
+		publishMqtt:    (publishMqttEnv == "true"),
 	}
-
-	s.SetConnectionReadyCallback(func(client *fcmreceiver.FCMClient) {
-		newNotifier.setupMessageHandlers(context.Background(), client)
-	})
 
 	return newNotifier, nil
 }
 
-func (n *Client) StartListening(ctx context.Context) error {
-	log := log.Ctx(ctx)
+func newInternalClient(ctx context.Context, session Session, forceRegister bool) (*fcmreceiver.FCMClient, error) {
+	log := log.Ctx(ctx).With().Str("client", "fcm").Logger()
 
-	log.Info().Msg("starting fcm connection with auto-reconnection")
+	log.Trace().Msg("creating new fcm client")
 
-	return n.session.StartFCMWithReconnection(ctx)
+	newClient := &fcmreceiver.FCMClient{
+		ProjectID: constants.PROJECT_ID,
+		AppId:     constants.APP_ID,
+		ApiKey:    constants.API_KEY,
+		AndroidApp: &fcmreceiver.AndroidFCM{
+			GcmSenderId:    constants.MESSAGE_SENDER_ID,
+			AndroidPackage: sharedconstants.ADM_APP_ID,
+		},
+	}
+
+	err := session.prepareKeys(ctx, newClient)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to prepare keys")
+
+		return nil, err
+	}
+
+	if !forceRegister {
+		log.Debug().Msg("using existing registration")
+
+		newClient.FcmToken = *session.FcmSession.RegistrationToken
+		newClient.AndroidId = *session.AndroidId
+		newClient.SecurityToken = *session.SecurityToken
+
+		return newClient, nil
+	}
+
+	log.Debug().Msg("refreshing registration")
+
+	fcmToken, _, androidId, securityToken, err := newClient.Register()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to register FCM client")
+		return nil, err
+	}
+
+	session.FcmSession.RegistrationToken = &fcmToken
+	session.AndroidId = &androidId
+	session.SecurityToken = &securityToken
+
+	log.Trace().Msg("registered fcm client")
+
+	return newClient, nil
 }
 
-func (n *Client) setupMessageHandlers(ctx context.Context, client *fcmreceiver.FCMClient) {
-	client.OnDataMessage = func(message []byte) {
+func (n *Client) StartListening(ctx context.Context) error {
+	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
+
+	n.internalClient.OnDataMessage = func(message []byte) {
 		n.onDataMessage(ctx, message)
 	}
 
-	client.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) {
+	n.internalClient.OnRawMessage = func(message *fcmreceiver.DataMessageStanza) {
 		n.OnRawMessage(ctx, message)
 	}
+
+	go func() {
+		log.Debug().Msg("starting fcm client")
+		err := n.internalClient.StartListening()
+		if err != nil {
+			log.Error().Err(err).Msg("fcm start listening failed")
+		}
+	}()
+
+	return nil
 }
 
 func (n *Client) onDataMessage(ctx context.Context, message []byte) {
@@ -180,13 +241,10 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 		Msg("report")
 }
 
-func (n *Client) GetFcmToken() string {
-	if n.session.fcmClient != nil {
-		return n.session.fcmClient.FcmToken
+func (n *Client) GetFcmToken() *string {
+	if n.internalClient != nil {
+		return &n.internalClient.FcmToken
 	}
-	return ""
-}
 
-func (n *Client) StopListening() {
-	n.session.StopFCMReconnection()
+	return nil
 }

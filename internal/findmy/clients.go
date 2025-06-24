@@ -85,12 +85,12 @@ func (s *Service) initClients(ctx context.Context) error {
 		return err
 	}
 
-	notifierClient, err := notifier.NewClient(ctx, session, publisher, semanticLocations)
+	notifierClient, err := notifier.NewClient(ctx, *session, publisher, semanticLocations)
 	if err != nil {
 		return err
 	}
 
-	*session.FcmSession.RegistrationToken = notifierClient.GetFcmToken()
+	session.FcmSession.RegistrationToken = notifierClient.GetFcmToken()
 
 	clientOps := []nova.Option{
 		nova.WithNotifierSession(session),

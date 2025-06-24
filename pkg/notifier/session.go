@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/dylanmazurek/go-findmy/pkg/notifier/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier/models"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/constants"
-	fcmreceiver "github.com/morhaviv/go-fcm-receiver"
 	"github.com/perimeterx/marshmallow"
 	"github.com/rs/zerolog/log"
 )
@@ -22,24 +20,12 @@ type Session struct {
 	OwnerKey      *string            `json:"ownerKey"`
 	FcmSession    *models.FcmSession `json:"fcmSession"`
 	AdmSession    *models.AdmSession `json:"admSession"`
-
-	fcmClient         *fcmreceiver.FCMClient
-	reconnectConfig   *ReconnectionConfig
-	reconnectMutex    sync.Mutex
-	isReconnecting    bool
-	stopReconnect     chan bool
-	connectionMonitor chan error
-	onConnectionReady func(*fcmreceiver.FCMClient)
 }
 
 func (s *Session) GetEmail() string {
 	email := fmt.Sprintf("%s@%s", s.Username, constants.GMAIL_DOMAIN)
 
 	return email
-}
-
-func (s *Session) SetConnectionReadyCallback(callback func(*fcmreceiver.FCMClient)) {
-	s.onConnectionReady = callback
 }
 
 func NewSession(ctx context.Context, f *string) (*Session, error) {

@@ -13,7 +13,7 @@ const (
 
 // Constants for the session
 var (
-	DEFAULT_SESSION_FILE = "session.json"
+	DEFAULT_SESSION_FILE = ".storage/session.json"
 )
 
 var (
