@@ -131,9 +131,23 @@ func (n *Client) StartListening(ctx context.Context) error {
 
 	go func() {
 		log.Debug().Msg("starting fcm client")
-		err := n.internalClient.StartListening()
-		if err != nil {
-			log.Error().Err(err).Msg("fcm start listening failed")
+
+		for {
+			err := n.internalClient.StartListening()
+			if err != nil {
+				log.Error().Err(err).Msg("fcm start listening failed")
+			}
+
+			log.Debug().Msg("restarting fcm client")
+
+			// Recreate the client to reset the connection
+			newClient, err := newInternalClient(ctx, *n.session, true)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to recreate fcm client")
+				return
+			}
+
+			n.internalClient = newClient
 		}
 	}()
 

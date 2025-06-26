@@ -8,23 +8,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func NewSessionFromClient(c *fcmreceiver.FCMClient) (*models.FcmSession, *uint64, *uint64, error) {
-	privateKey, err := c.GetPrivateKeyBase64()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	authSecret := c.GetAuthSecretBase64()
-
-	newSession := &models.FcmSession{
-		RegistrationToken: &c.FcmToken,
-		PrivateKeyBase64:  &privateKey,
-		AuthSecret:        &authSecret,
-	}
-
-	return newSession, &c.AndroidId, &c.SecurityToken, err
-}
-
 func (s *Session) prepareKeys(ctx context.Context, c *fcmreceiver.FCMClient) error {
 	log := log.Ctx(ctx)
 
@@ -45,7 +28,7 @@ func (s *Session) prepareKeys(ctx context.Context, c *fcmreceiver.FCMClient) err
 		return err
 	}
 
-	log.Trace().Msg("loaded keys")
+	log.Debug().Msg("loaded keys")
 
 	return nil
 }

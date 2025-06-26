@@ -28,14 +28,14 @@ func (s *Session) GetEmail() string {
 	return email
 }
 
-func NewSession(ctx context.Context, f *string) (*Session, error) {
+func NewSession(ctx context.Context, sessionStr *string) (*Session, error) {
 	log := log.Ctx(ctx).With().Str("client", constants.CLIENT_NAME).Logger()
 
 	var session Session
-	if f != nil {
+	if sessionStr != nil {
 		log.Info().Msg("session file set, loading session")
 
-		err := session.LoadSession(*f)
+		err := session.LoadSession(ctx, *sessionStr)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func NewSession(ctx context.Context, f *string) (*Session, error) {
 		session.AdmSession = &models.AdmSession{}
 	}
 
-	if f == nil {
+	if sessionStr == nil {
 		log.Info().Msg("session file not set, creating new session")
 
 		err := session.SaveSession(ctx, shared.DEFAULT_SESSION_FILE)
@@ -61,7 +61,11 @@ func NewSession(ctx context.Context, f *string) (*Session, error) {
 	return &session, nil
 }
 
-func (s *Session) LoadSession(sessionStr string) error {
+func (s *Session) LoadSession(ctx context.Context, sessionStr string) error {
+	log := log.Ctx(ctx)
+
+	log.Debug().Msg("loading session")
+
 	var session Session
 	_, err := marshmallow.Unmarshal([]byte(sessionStr), &session)
 	if err != nil {
@@ -75,11 +79,15 @@ func (s *Session) LoadSession(sessionStr string) error {
 	s.FcmSession = session.FcmSession
 	s.AdmSession = session.AdmSession
 
+	log.Debug().Msg("session loaded")
+
 	return nil
 }
 
 func (s *Session) SaveSession(ctx context.Context, f string) error {
 	log := log.Ctx(ctx)
+
+	log.Debug().Msg("saving session")
 
 	jsonDetails, err := json.MarshalIndent(s, "", "\t")
 	if err != nil {
@@ -92,7 +100,7 @@ func (s *Session) SaveSession(ctx context.Context, f string) error {
 		return err
 	}
 
-	log.Trace().Msg("session saved")
+	log.Debug().Msg("session saved")
 
 	return nil
 }
