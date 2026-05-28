@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/dylanmazurek/go-findmy/pkg/notifier"
+	"github.com/dylanmazurek/go-findmy/pkg/gpapi"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/google/uuid"
@@ -22,7 +22,7 @@ type Client struct {
 	clientUuid string
 	auth       *models.Auth
 
-	notifierSession *notifier.Session
+	googlePlaySession *gpapi.Session
 }
 
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
@@ -44,7 +44,8 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 
 		clientUuid: newClientUuid.String(),
 
-		notifierSession: clientOptions.notifierSession,
+		googlePlaySession: clientOptions.googlePlaySession,
+		//notifierSession: clientOptions.notifierSession,
 	}
 
 	err := newClient.validateAdmToken(ctx)

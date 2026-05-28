@@ -10,25 +10,15 @@ import (
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
-	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/rs/zerolog/log"
 )
 
-func (s *Service) initClients(ctx context.Context) error {
+func (s *Service) initClients(ctx context.Context, secrets map[string]any) error {
 	log := log.Ctx(ctx)
 
 	log.Trace().Msg("initializing clients")
 
-	vaultAddr := os.Getenv("VAULT_ADDR")
-	vaultAppRoleId := os.Getenv("VAULT_APPROLE_ID")
-	vaultSecretId := os.Getenv("VAULT_SECRET_ID")
-
-	vaultClient, err := vault.NewClient(ctx, vaultAddr, vaultAppRoleId, vaultSecretId)
-	if err != nil {
-		return err
-	}
-
-	vaultSecret, err := vaultClient.GetSecret(ctx, "kv", "go-findmy")
+	err := checkSecrets(secrets)
 	if err != nil {
 		return err
 	}
@@ -38,27 +28,12 @@ func (s *Service) initClients(ctx context.Context) error {
 		return fmt.Errorf("MQTT_URL not found in environment")
 	}
 
-	mqttUsername, ok := vaultSecret["MQTT_USERNAME"].(string)
-	if !ok {
-		return fmt.Errorf("MQTT_USERNAME not found in vault secret")
-	}
-
-	mqttPassword, ok := vaultSecret["MQTT_PASSWORD"].(string)
-	if !ok {
-		return fmt.Errorf("MQTT_PASSWORD not found in vault secret")
-	}
-
-	publisher, err := publisher.NewPublisher(ctx, mqttUrl, mqttUsername, mqttPassword)
+	publisher, err := publisher.NewPublisher(ctx, mqttUrl, secrets["MQTT_USERNAME"].(string), secrets["MQTT_PASSWORD"].(string))
 	if err != nil {
 		return err
 	}
 
-	sessionIrf, ok := vaultSecret["SESSION"].(map[string]any)
-	if !ok {
-		return fmt.Errorf("SESSION not found in vault secret")
-	}
-
-	sessionBytes, err := json.Marshal(sessionIrf)
+	sessionBytes, err := json.Marshal(secrets["SESSION"].(map[string]any))
 	if err != nil {
 		return err
 	}
@@ -69,12 +44,7 @@ func (s *Service) initClients(ctx context.Context) error {
 		return err
 	}
 
-	semanticLocationsIrf, ok := vaultSecret["SEMANTIC_LOCATIONS"].([]any)
-	if !ok {
-		return fmt.Errorf("SEMANTIC_LOCATIONS not found in vault secret")
-	}
-
-	semanticLocationsBytes, err := json.Marshal(semanticLocationsIrf)
+	semanticLocationsBytes, err := json.Marshal(secrets["SEMANTIC_LOCATIONS"].([]any))
 	if err != nil {
 		return err
 	}
@@ -106,6 +76,21 @@ func (s *Service) initClients(ctx context.Context) error {
 	s.novaClient = novaClient
 	s.notifierClient = notifierClient
 	s.publisherClient = publisher
+
+	return nil
+}
+
+func checkSecrets(secrets map[string]any) error {
+	if secrets == nil {
+		return fmt.Errorf("secrets cannot be nil")
+	}
+
+	requiredKeys := []string{"MQTT_USERNAME", "MQTT_PASSWORD", "SESSION", "SEMANTIC_LOCATIONS"}
+	for _, key := range requiredKeys {
+		if _, exists := secrets[key]; !exists {
+			return fmt.Errorf("required secret %s not found", key)
+		}
+	}
 
 	return nil
 }

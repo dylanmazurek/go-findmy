@@ -3,9 +3,9 @@ package notifier
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 
+	"github.com/dylanmazurek/go-findmy/pkg/gpapi"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier/constants"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier/models"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/constants"
@@ -14,18 +14,12 @@ import (
 )
 
 type Session struct {
-	Username      string             `json:"username"`
+	Email         string             `json:"email"`
 	AndroidId     *uint64            `json:"androidId"`
 	SecurityToken *uint64            `json:"securityToken"`
 	OwnerKey      *string            `json:"ownerKey"`
 	FcmSession    *models.FcmSession `json:"fcmSession"`
-	AdmSession    *models.AdmSession `json:"admSession"`
-}
-
-func (s *Session) GetEmail() string {
-	email := fmt.Sprintf("%s@%s", s.Username, constants.GMAIL_DOMAIN)
-
-	return email
+	AdmSession    *gpapi.Session     `json:"admSession"`
 }
 
 func NewSession(ctx context.Context, sessionStr *string) (*Session, error) {
@@ -46,7 +40,7 @@ func NewSession(ctx context.Context, sessionStr *string) (*Session, error) {
 	}
 
 	if session.AdmSession == nil {
-		session.AdmSession = &models.AdmSession{}
+		session.AdmSession = &gpapi.Session{}
 	}
 
 	if sessionStr == nil {
@@ -72,7 +66,7 @@ func (s *Session) LoadSession(ctx context.Context, sessionStr string) error {
 		return err
 	}
 
-	s.Username = session.Username
+	s.Email = session.Email
 	s.AndroidId = session.AndroidId
 	s.SecurityToken = session.SecurityToken
 	s.OwnerKey = session.OwnerKey

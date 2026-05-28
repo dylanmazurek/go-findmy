@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/dylanmazurek/go-findmy/internal"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	shared "github.com/dylanmazurek/go-findmy/pkg/shared/models"
 	"github.com/rs/zerolog/log"
@@ -15,7 +15,7 @@ import (
 func (n *Client) handleReport(ctx context.Context, deviceUpdate *bindings.DeviceUpdate, loc shared.LocationReport) (*shared.LocationReport, error) {
 	log := log.Ctx(ctx)
 
-	uniqueId, err := internal.FormatUniqueId(deviceUpdate.DeviceMetadata)
+	uniqueId, err := models.FormatUniqueId(deviceUpdate.DeviceMetadata)
 	if errors.Is(err, errors.New("multiple canonic ids found")) {
 		log.Warn().Err(err).Msg("multiple canonic ids found, using first one")
 	}
@@ -27,7 +27,7 @@ func (n *Client) handleReport(ctx context.Context, deviceUpdate *bindings.Device
 	isSemanticLocation := (loc.SemanticName != nil)
 
 	if isSemanticLocation {
-		err := processSemanticLocation(&newLocationReport)
+		err := processSemanticLocation(n.semanticLocations, &newLocationReport)
 		if err != nil {
 			log.Error().
 				Str("semantic_name", *loc.SemanticName).
@@ -54,7 +54,7 @@ func (n *Client) handleReport(ctx context.Context, deviceUpdate *bindings.Device
 	return &newLocationReport, nil
 }
 
-func processSemanticLocation(locationReport *shared.LocationReport) error {
+func processSemanticLocation(semanticLocations []shared.SemanticLocation, locationReport *shared.LocationReport) error {
 	semanticLocationName := *locationReport.SemanticName
 	if semanticLocationName == "" {
 		err := fmt.Errorf("failed to find semantic location name")

@@ -103,12 +103,12 @@ func (c *Client) refreshAdmToken(ctx context.Context) error {
 
 	formData := url.Values{}
 	formData.Set("accountType", "HOSTED_OR_GOOGLE")
-	formData.Set("Email", c.notifierSession.GetEmail())
+	formData.Set("Email", c.googlePlaySession.Email)
 	formData.Set("has_permission", "1")
-	formData.Set("EncryptedPasswd", c.notifierSession.AdmSession.AasToken)
+	formData.Set("EncryptedPasswd", c.googlePlaySession.AasToken)
 	formData.Set("service", scope)
 	formData.Set("source", constants.AUTH_CLIENT_SOURCE)
-	formData.Set("androidId", fmt.Sprintf("%d", c.notifierSession.AndroidId))
+	formData.Set("androidId", fmt.Sprintf("%d", c.googlePlaySession.AndroidId))
 	formData.Set("app", shared.ADM_APP_ID)
 	formData.Set("client_sig", constants.AUTH_CLIENT_SIG)
 	formData.Set("device_country", "us")

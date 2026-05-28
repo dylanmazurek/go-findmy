@@ -47,7 +47,7 @@ func (c *Client) ExecuteAction(ctx context.Context, canonicId string) error {
 			FmdClientUuid: c.clientUuid,
 			Unknown:       true,
 			GcmRegistrationId: &bindings.GcmCloudMessagingIdProtobuf{
-				Id: *c.notifierSession.FcmSession.RegistrationToken,
+			//	Id: *c.notifierSession.FcmSession.RegistrationToken,
 			},
 		},
 	}

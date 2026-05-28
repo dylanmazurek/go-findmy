@@ -3,8 +3,8 @@ package findmy
 import (
 	"context"
 
-	"github.com/dylanmazurek/go-findmy/internal"
 	pubModels "github.com/dylanmazurek/go-findmy/internal/publisher/models"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/rs/zerolog/log"
 )
@@ -19,7 +19,7 @@ func (s *Service) GetDevices(ctx context.Context) ([]pubModels.Device, error) {
 	for _, device := range devices.DeviceMetadata {
 		deviceName := device.GetUserDefinedDeviceName()
 
-		deviceType, err := internal.GetDeviceType(device)
+		deviceType, err := models.GetDeviceType(device)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get device type")
 
@@ -34,7 +34,7 @@ func (s *Service) GetDevices(ctx context.Context) ([]pubModels.Device, error) {
 			manufacturer = device.GetInformation().GetDeviceRegistration().GetManufacturer()
 		}
 
-		serial, err := internal.FormatUniqueId(device)
+		serial, err := models.FormatUniqueId(device)
 		if err != nil {
 			continue
 		}

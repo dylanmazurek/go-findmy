@@ -23,14 +23,14 @@ type Service struct {
 	internalScheduler gocron.Scheduler
 }
 
-func NewService(ctx context.Context) (*Service, error) {
+func NewService(ctx context.Context, secrets map[string]any) (*Service, error) {
 	log := log.Ctx(ctx).With().Str("service", constants.SERVICE_NAME).Logger()
 
 	log.Debug().Msg("creating new find-my service")
 
 	var newFindMyService Service
 
-	err := newFindMyService.initClients(ctx)
+	err := newFindMyService.initClients(ctx, secrets)
 	if err != nil {
 		return nil, err
 	}

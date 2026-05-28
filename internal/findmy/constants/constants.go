@@ -2,6 +2,8 @@ package constants
 
 const (
 	SERVICE_NAME = "find-my"
+	STORAGE_DIR  = ".storage"
+	SECRETS_FILE = "secrets.json"
 )
 
 const (

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dylanmazurek/go-findmy/pkg/notifier"
+	"github.com/dylanmazurek/go-findmy/internal/findmy/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/gpapi"
 	"github.com/dylanmazurek/go-findmy/pkg/nova"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
@@ -18,39 +19,25 @@ func main() {
 	ctx := context.Background()
 
 	log.Trace().Msg("initializing clients")
-	vaultAddr := os.Getenv("VAULT_ADDR")
-	vaultAppRoleId := os.Getenv("VAULT_APPROLE_ID")
-	vaultSecretId := os.Getenv("VAULT_SECRET_ID")
 
-	vaultClient, err := vault.NewClient(ctx, vaultAddr, vaultAppRoleId, vaultSecretId)
+	secrets, err := getFileSecrets()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to get file secrets")
 		panic(err)
 	}
 
-	vaultSecret, err := vaultClient.GetSecret(ctx, "kv", "go-findmy")
-	if err != nil {
-		panic(err)
-	}
+	session := secrets["SESSION"].(map[string]any)
+	admSessionObj := session["admSession"].(map[string]any)
 
-	sessionIrf, ok := vaultSecret["SESSION"].(map[string]interface{})
-	if !ok {
-		err := fmt.Errorf("SESSION not found in vault secret")
-		panic(err)
-	}
-
-	sessionBytes, err := json.Marshal(sessionIrf)
-	if err != nil {
-		panic(err)
-	}
-
-	var session *notifier.Session
-	err = json.Unmarshal([]byte(sessionBytes), &session)
-	if err != nil {
-		panic(err)
+	var admSession gpapi.Session = gpapi.Session{
+		AndroidId: admSessionObj["androidId"].(float64),
+		Email:     admSessionObj["email"].(string),
+		AasToken:  admSessionObj["aasToken"].(string),
+		AdmToken:  admSessionObj["admToken"].(string),
 	}
 
 	clientOps := []nova.Option{
-		nova.WithNotifierSession(session),
+		nova.WithGooglePlaySession(&admSession),
 	}
 
 	novaClient, err := nova.NewClient(ctx, clientOps...)
@@ -59,6 +46,49 @@ func main() {
 	}
 
 	listDevices(ctx, novaClient)
+}
+
+func getVaultSecrets(ctx context.Context) (map[string]any, error) {
+	vaultAddr := os.Getenv("VAULT_ADDR")
+	vaultAppRoleId := os.Getenv("VAULT_APPROLE_ID")
+	vaultSecretId := os.Getenv("VAULT_SECRET_ID")
+
+	vaultClient, err := vault.NewClient(ctx, vaultAddr, vaultAppRoleId, vaultSecretId)
+	if err != nil {
+		return nil, err
+	}
+
+	vaultSecret, err := vaultClient.GetSecret(ctx, "kv", "go-findmy")
+	if err != nil {
+		return nil, err
+	}
+
+	if vaultSecret == nil {
+		return nil, fmt.Errorf("no vault secret found")
+	}
+
+	return vaultSecret, nil
+}
+
+func getFileSecrets() (map[string]any, error) {
+	var secrets map[string]any
+
+	secretsFile := os.Getenv("SECRETS_FILE")
+	if secretsFile == "" {
+		secretsFile = fmt.Sprintf("%s/%s", constants.STORAGE_DIR, constants.SECRETS_FILE)
+	}
+
+	file, err := os.ReadFile(secretsFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secrets file: %w", err)
+	}
+
+	err = json.Unmarshal(file, &secrets)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secrets file: %w", err)
+	}
+
+	return secrets, nil
 }
 
 func listDevices(ctx context.Context, novaClient *nova.Client) error {

@@ -19,16 +19,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var semanticLocations []shared.SemanticLocation
-
 type Client struct {
 	internalClient *fcmreceiver.FCMClient
 
 	decryptor *decryptor.Decryptor
 	publisher *publisher.Client
 
-	session     *Session
-	publishMqtt bool
+	session           *Session
+	semanticLocations []shared.SemanticLocation
+	publishMqtt       bool
 }
 
 func NewClient(ctx context.Context, s Session, p *publisher.Client, sl []shared.SemanticLocation) (*Client, error) {
@@ -48,8 +47,6 @@ func NewClient(ctx context.Context, s Session, p *publisher.Client, sl []shared.
 		publishMqttEnv = "false"
 	}
 
-	semanticLocations = sl
-
 	log.Trace().Msg("initializing internal client")
 	newInternalClient, err := newInternalClient(ctx, s, true)
 	if err != nil {
@@ -61,9 +58,10 @@ func NewClient(ctx context.Context, s Session, p *publisher.Client, sl []shared.
 		decryptor: newDecryptor,
 		publisher: p,
 
-		session:        &s,
-		internalClient: newInternalClient,
-		publishMqtt:    (publishMqttEnv == "true"),
+		session:           &s,
+		semanticLocations: sl,
+		internalClient:    newInternalClient,
+		publishMqtt:       (publishMqttEnv == "true"),
 	}
 
 	return newNotifier, nil
@@ -202,7 +200,7 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 	}
 
 	if len(locations) == 0 {
-		log.Warn().
+		log.Trace().
 			Str(constants.LOG_USER_DEFINED_DEVICE_NAME, deviceUpdate.DeviceMetadata.UserDefinedDeviceName).
 			Msg("no recent locations found for device")
 
@@ -246,13 +244,12 @@ func (n *Client) OnRawMessage(ctx context.Context, message *fcmreceiver.DataMess
 
 	deviceName := deviceUpdate.DeviceMetadata.GetUserDefinedDeviceName()
 
-	log.Info().
+	log.Trace().
 		Str("name", deviceName).
-		Int("count", len(locations)).
 		Float64("latitude", latestReport.Latitude).
 		Float64("longitude", latestReport.Longitude).
 		Float64("accuracy", latestReport.Accuracy).
-		Msg("report")
+		Msg("report received")
 }
 
 func (n *Client) GetFcmToken() *string {

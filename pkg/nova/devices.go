@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/dylanmazurek/go-findmy/internal"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/constants"
+	"github.com/dylanmazurek/go-findmy/pkg/nova/models"
 	"github.com/dylanmazurek/go-findmy/pkg/nova/models/protos/bindings"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -50,7 +50,7 @@ func (c *Client) RefreshDevices(ctx context.Context) error {
 	}
 
 	for _, device := range devices.DeviceMetadata {
-		firstCanonicId, err := internal.FormatUniqueId(device)
+		firstCanonicId, err := models.FormatUniqueId(device)
 		if err != nil {
 			continue
 		}
