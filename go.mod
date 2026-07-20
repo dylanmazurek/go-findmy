@@ -46,6 +46,7 @@ require (
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/hashicorp/vault/api/auth/approle v0.9.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
+	github.com/joho/godotenv v1.5.1
 	github.com/markkurossi/tabulate v0.0.0-20230223130100-d4965869b123
 	github.com/morhaviv/go-fcm-receiver v1.2.0
 	github.com/perimeterx/marshmallow v1.1.5

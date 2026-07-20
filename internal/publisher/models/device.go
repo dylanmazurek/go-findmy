@@ -27,7 +27,7 @@ func (d Device) MarshalJSON() ([]byte, error) {
 
 func NewDevice(name string, uniqueId string, model string, manufacturer string) Device {
 	newDevice := Device{
-		Name:        "Location",
+		Name:        name,
 		UniqueId:    uniqueId,
 		DeviceClass: "device_tracker",
 		DeviceInfo: DeviceInfo{

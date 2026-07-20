@@ -63,6 +63,7 @@ func (s *Service) initClients(ctx context.Context, secrets map[string]any) error
 	session.FcmSession.RegistrationToken = notifierClient.GetFcmToken()
 
 	clientOps := []nova.Option{
+		nova.WithGooglePlaySession(session.AdmSession),
 		nova.WithNotifierSession(session),
 	}
 

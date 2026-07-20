@@ -24,6 +24,15 @@ func (c *Client) ExecuteAction(ctx context.Context, canonicId string) error {
 
 	lastHighTrafficEnablingTime := time.Now().Add(time.Duration(-5 * time.Hour)).Unix()
 
+	var gcmId *bindings.GcmCloudMessagingIdProtobuf
+	if c.notifierSession != nil && c.notifierSession.FcmSession != nil && c.notifierSession.FcmSession.RegistrationToken != nil {
+		gcmId = &bindings.GcmCloudMessagingIdProtobuf{
+			Id: *c.notifierSession.FcmSession.RegistrationToken,
+		}
+	} else {
+		gcmId = &bindings.GcmCloudMessagingIdProtobuf{}
+	}
+
 	var reqMessage = &bindings.ExecuteActionRequest{
 		Action: &bindings.ExecuteActionType{
 			LocateTracker: &bindings.ExecuteActionLocateTrackerType{
@@ -42,13 +51,11 @@ func (c *Client) ExecuteAction(ctx context.Context, canonicId string) error {
 			},
 		},
 		RequestMetadata: &bindings.ExecuteActionRequestMetadata{
-			Type:          bindings.DeviceType_SPOT_DEVICE,
-			RequestUuid:   requestUuid.String(),
-			FmdClientUuid: c.clientUuid,
-			Unknown:       true,
-			GcmRegistrationId: &bindings.GcmCloudMessagingIdProtobuf{
-			//	Id: *c.notifierSession.FcmSession.RegistrationToken,
-			},
+			Type:              bindings.DeviceType_SPOT_DEVICE,
+			RequestUuid:       requestUuid.String(),
+			FmdClientUuid:     c.clientUuid,
+			Unknown:           true,
+			GcmRegistrationId: gcmId,
 		},
 	}
 

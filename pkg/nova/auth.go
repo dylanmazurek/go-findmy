@@ -108,7 +108,7 @@ func (c *Client) refreshAdmToken(ctx context.Context) error {
 	formData.Set("EncryptedPasswd", c.googlePlaySession.AasToken)
 	formData.Set("service", scope)
 	formData.Set("source", constants.AUTH_CLIENT_SOURCE)
-	formData.Set("androidId", fmt.Sprintf("%d", c.googlePlaySession.AndroidId))
+	formData.Set("androidId", fmt.Sprintf("%.0f", c.googlePlaySession.AndroidId))
 	formData.Set("app", shared.ADM_APP_ID)
 	formData.Set("client_sig", constants.AUTH_CLIENT_SIG)
 	formData.Set("device_country", "us")

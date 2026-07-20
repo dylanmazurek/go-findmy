@@ -11,6 +11,8 @@ import (
 	"github.com/dylanmazurek/go-findmy/internal/logger"
 	"github.com/dylanmazurek/go-findmy/pkg/shared/vault"
 	"github.com/rs/zerolog/log"
+
+	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
