@@ -100,7 +100,7 @@ func (s *Service) Start(ctx context.Context) error {
 		log.Error().Err(err).Msg("failed to get devices")
 	}
 
-	s.publisherClient.InitalizeDevices(ctx, devices)
+	s.publisherClient.InitializeDevices(ctx, devices)
 
 	log.Trace().Msg("starting find-my service")
 
