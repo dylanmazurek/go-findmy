@@ -51,7 +51,7 @@ func NewPublisher(ctx context.Context, mqttUrl string, username string, password
 	return &newClient, nil
 }
 
-func (c *Client) InitalizeDevices(ctx context.Context, devices []models.Device) ([]*paho.PublishResponse, error) {
+func (c *Client) InitializeDevices(ctx context.Context, devices []models.Device) ([]*paho.PublishResponse, error) {
 	var responses []*paho.PublishResponse
 
 	for _, device := range devices {

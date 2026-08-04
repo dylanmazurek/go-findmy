@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	"github.com/dylanmazurek/go-findmy/pkg/gpapi"
 	"github.com/dylanmazurek/go-findmy/pkg/notifier"
@@ -151,6 +153,13 @@ func (c *Client) Do(ctx context.Context, req *http.Request, resp interface{}) er
 	bodyBytes, err := io.ReadAll(httpResponse.Body)
 	if err != nil {
 		return err
+	}
+
+	if dumpDir := os.Getenv("NOVA_PROTO_DUMP"); dumpDir != "" {
+		os.MkdirAll(dumpDir, 0o755)
+		filename := filepath.Join(dumpDir, fmt.Sprintf("%s_%s_%d.bin", filepath.Base(req.URL.Path), req.Method, httpResponse.StatusCode))
+		_ = os.WriteFile(filename, bodyBytes, 0o644)
+		log.Debug().Str("path", filename).Int("bytes", len(bodyBytes)).Msg("dumped raw protobuf response")
 	}
 
 	if resp == nil {

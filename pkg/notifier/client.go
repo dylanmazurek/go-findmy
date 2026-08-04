@@ -3,8 +3,10 @@ package notifier
 import (
 	"context"
 	"encoding/base64"
+	"math"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/dylanmazurek/go-findmy/internal/publisher"
 	"github.com/dylanmazurek/go-findmy/internal/publisher/models"
@@ -130,13 +132,39 @@ func (n *Client) StartListening(ctx context.Context) error {
 	go func() {
 		log.Debug().Msg("starting fcm client")
 
+		const maxRetries = 10
+		var retryCount int
+
 		for {
 			err := n.internalClient.StartListening()
 			if err != nil {
 				log.Error().Err(err).Msg("fcm start listening failed")
 			}
 
-			log.Debug().Msg("restarting fcm client")
+			retryCount++
+			if retryCount > maxRetries {
+				log.Error().
+					Int("max_retries", maxRetries).
+					Msg("fcm client exceeded max retries, giving up")
+				return
+			}
+
+			backoff := time.Duration(math.Pow(2, float64(retryCount))) * time.Second
+			if backoff > 60*time.Second {
+				backoff = 60 * time.Second
+			}
+
+			log.Warn().
+				Int("retry_attempt", retryCount).
+				Dur("backoff", backoff).
+				Msg("restarting fcm client after backoff")
+
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				log.Debug().Msg("fcm listener context cancelled")
+				return
+			}
 
 			// Recreate the client to reset the connection
 			newClient, err := newInternalClient(ctx, *n.session, true)
@@ -146,6 +174,7 @@ func (n *Client) StartListening(ctx context.Context) error {
 			}
 
 			n.internalClient = newClient
+			retryCount = 0
 		}
 	}()
 
